@@ -4,6 +4,8 @@
  * Author: Daniel Palmer <daniel@thingy.jp>
  */
 
+#include <dt-bindings/gpio/msc313-gpio.h>
+
 / {
 	chosen {
 		stdout-path = "serial0:115200n8";
