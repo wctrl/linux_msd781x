@@ -16,9 +16,25 @@
 	};
 };
 
+&soc {
+	//start address for second cpu
+	//0x1F20404C
+	//0x1F204050
+	//0x1F204058 -- unlock
+};
+
 &riu {
 	smpctrl: smpctrl@204000 {
 		reg = <0x204000 0x200>;
 		status = "disabled";
 	};
+};
+
+&bdma {
+	reg = <0x200400 0x100>;
+	interrupt-parent = <&intc_irq>;
+	interrupts = <40 IRQ_TYPE_LEVEL_HIGH>,
+		     <41 IRQ_TYPE_LEVEL_HIGH>,
+		     <61 IRQ_TYPE_LEVEL_HIGH>,
+		     <62 IRQ_TYPE_LEVEL_HIGH>;
 };
