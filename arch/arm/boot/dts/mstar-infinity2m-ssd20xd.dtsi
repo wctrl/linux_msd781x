@@ -49,3 +49,7 @@
 		groups = "pm_led_mode1";
 	};
 };
+
+&sar {
+	compatible = "sstar,sar-ssd20x";
+};
