@@ -34,5 +34,6 @@
 };
 
 &sar {
-	compatible = "sstar,sar-ssd20x";
+	compatible = "sstar,ssd20x-sar";
+	status = "okay";
 };
