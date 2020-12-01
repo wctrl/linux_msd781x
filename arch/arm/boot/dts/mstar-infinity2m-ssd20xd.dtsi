@@ -10,3 +10,8 @@
 	compatible = "sstar,ssd201-smpctrl", "mstar,smpctrl";
 	status = "okay";
 };
+
+&gpio {
+	compatible = "sstar,ssd20xd-gpio";
+	status = "okay";
+};
