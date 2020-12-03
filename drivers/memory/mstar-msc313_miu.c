@@ -275,6 +275,10 @@ static int msc313_miu_ddrpll_probe(struct platform_device *pdev,
 static irqreturn_t msc313_miu_irq(int irq, void *data)
 {
 	struct msc313_miu *miu = data;
+	unsigned int status;
+
+	regmap_read(miu->digital, MIU_DIG_PROTECTION_STATUS, &status);
+	regmap_write(miu->digital, MIU_DIG_PROTECTION_STATUS, ~0);
 
 	return IRQ_HANDLED;
 }
@@ -332,9 +336,8 @@ static int msc313_miu_probe(struct platform_device *pdev)
 	if (!irq)
 		return -EINVAL;
 
-	//devm_request_irq(&pdev->dev, irq, msc313_miu_irq, IRQF_SHARED,
-	//		dev_name(&pdev->dev), miu);
-
+	devm_request_irq(&pdev->dev, irq, msc313_miu_irq, IRQF_SHARED,
+			dev_name(&pdev->dev), miu);
 
 	clk_prepare_enable(miu->miuclk);
 
