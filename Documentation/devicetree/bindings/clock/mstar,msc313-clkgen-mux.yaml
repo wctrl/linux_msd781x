@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/clock/mstar,msc313-clkgen-mux.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: MStar/Sigmastar MSC313 CLKGEN mux
+
+maintainers:
+  - Daniel Palmer <daniel@thingy.jp>
+
+description: |
+  The MStar/SigmaStar MSC313 and later ARMv7 chips has a number of
+  "CLKGEN"s. Some in the pm area, some in standard peripheral area
+  and some in the "scaler" area.
+
+select: false
+
+properties:
+  compatible:
+    const: mstar,msc313-clkgen-mux
+
+  "#clock-cells":
+    const: 1
+
+  clocks: true
+
+required:
+  - compatible
+  - "#clock-cells"
+  - clocks
+
+additionalProperties: false
