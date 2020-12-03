@@ -689,7 +689,7 @@
 				 */
 			};
 
-			miu: miu@202200 {
+			miu: miu@202000 {
 				compatible = "mstar,msc313-miu";
 				reg = <0x202000	0x200>,
 				      <0x202400 0x200>,
