@@ -337,8 +337,11 @@ static int msc313_miu_probe(struct platform_device *pdev)
 	if (!irq)
 		return -EINVAL;
 
-	devm_request_irq(&pdev->dev, irq, msc313_miu_irq, IRQF_SHARED,
-			dev_name(&pdev->dev), miu);
+	/* clear any pending interrupt we might have been left */
+	regmap_write(miu->digital, MIU_DIG_PROTECTION_STATUS, ~0);
+
+	//devm_request_irq(&pdev->dev, irq, msc313_miu_irq, IRQF_SHARED,
+	//		dev_name(&pdev->dev), miu);
 
 	clk_prepare_enable(miu->miuclk);
 
