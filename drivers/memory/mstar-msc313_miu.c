@@ -129,6 +129,7 @@ struct msc313_miu {
 static const struct of_device_id msc313_miu_dt_ids[] = {
 	{ .compatible = "mstar,msc313-miu" },
 	{ .compatible = "mstar,ssc8336-miu" },
+	{ .compatible = "mstar,ssd201-miu" },
 	{},
 };
 MODULE_DEVICE_TABLE(of, msc313_miu_dt_ids);
