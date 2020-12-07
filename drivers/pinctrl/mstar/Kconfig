@@ -3,3 +3,10 @@ config PINCTRL_MSTAR
 	select GENERIC_PINMUX_FUNCTIONS
 	select GENERIC_PINCTRL_GROUPS
 	select GENERIC_PINCONF
+
+config PINCTRL_MSC313
+	bool "Pinctrl driver for the Mstar MSC313"
+	depends on OF && (ARCH_MSTARV7 || COMPILE_TEST)
+	select REGMAP_MMIO
+	select PINCTRL_MSTAR
+	default ARCH_MSTARV7
