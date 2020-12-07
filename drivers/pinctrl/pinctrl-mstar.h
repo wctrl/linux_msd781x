@@ -70,6 +70,18 @@
 #define REG_ETH		REG_ETH_JTAG
 #define MASK_ETH	BIT(2)
 
+#define REG_SR0_MIPI	REG_SENSOR_CONFIG
+#define MASK_SR0_MIPI	(BIT(9) | BIT(8))
+
+#define REG_SR1_BT656	REG_SENSOR_CONFIG
+#define MASK_SR1_BT656	BIT(12)
+
+#define REG_SR1_MIPI	REG_SENSOR_CONFIG
+#define MASK_SR1_MIPI	(BIT(15) | BIT(14) | BIT(13))
+
+#define REG_TX_MIPI	REG_TX_MIPI_UART2
+#define MASK_TX_MIPI	(BIT(1) | BIT(0))
+
 /* common pin group names */
 #define GROUPNAME_PM_UART		"pm_uart"
 #define GROUPNAME_PM_SPI		"pm_spi"
@@ -106,6 +118,14 @@
 #define GROUPNAME_SPI0_DO		"spi0_do"
 #define GROUPNAME_SPI1			"spi1"
 
+#define GROUPNAME_SR0_MIPI_MODE1	"sr0_mipi_mode1"
+#define GROUPNAME_SR0_MIPI_MODE2	"sr0_mipi_mode2"
+#define GROUPNAME_SR1_BT656		"sr1_bt656"
+#define GROUPNAME_SR1_MIPI_MODE4	"sr1_mipi_mode4"
+
+#define GROUPNAME_TX_MIPI_MODE1		"tx_mipi_mode1"
+#define GROUPNAME_TX_MIPI_MODE2		"tx_mipi_mode2"
+
 /* common group function names */
 #define FUNCTIONNAME_PM_UART	GROUPNAME_PM_UART
 #define FUNCTIONNAME_PM_SPI	GROUPNAME_PM_SPI
@@ -129,3 +149,9 @@
 #define FUNCTIONNAME_I2C1	GROUPNAME_I2C1
 #define FUNCTIONNAME_SPI0	GROUPNAME_SPI0
 #define FUNCTIONNAME_SPI1	GROUPNAME_SPI1
+
+#define FUNCTIONNAME_SR0_MIPI	"sr0_mipi"
+#define FUNCTIONNAME_SR1_BT656	GROUPNAME_SR1_BT656
+#define FUNCTIONNAME_SR1_MIPI	"sr1_mipi"
+
+#define FUNCTIONNAME_TX_MIPI	"tx_mipi"
