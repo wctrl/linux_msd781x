@@ -1,0 +1,99 @@
+#ifndef INCLUDE_DT_BINDINGS_PINCTRL_MSTAR_H_
+#define INCLUDE_DT_BINDINGS_PINCTRL_MSTAR_H_
+
+/* standard pin names that are used across mstar/sigmastars parts */
+#define PINNAME_PM_UART_RX	"pm_uart_rx"
+#define PINNAME_PM_UART_TX	"pm_uart_tx"
+#define PINNAME_PM_SD_CDZ	"pm_sd_cdz"
+#define PINNAME_PM_IRIN		"pm_irin"
+#define PINNAME_PM_GPIO0	"pm_gpio0"
+#define PINNAME_PM_GPIO2	"pm_gpio2"
+#define PINNAME_PM_GPIO4	"pm_gpio4"
+#define PINNAME_PM_GPIO5	"pm_gpio5"
+#define PINNAME_PM_GPIO6	"pm_gpio6"
+#define PINNAME_PM_GPIO8	"pm_gpio8"
+#define PINNAME_PM_SPI_CZ	"pm_spi_cz"
+#define PINNAME_PM_SPI_DI	"pm_spi_di"
+#define PINNAME_PM_SPI_WPZ	"pm_spi_wpz"
+#define PINNAME_PM_SPI_DO	"pm_spi_do"
+#define PINNAME_PM_SPI_CK	"pm_spi_ck"
+#define PINNAME_PM_SPI_HOLD	"pm_spi_hold"
+#define PINNAME_FUART_TX	"fuart_tx"
+#define PINNAME_FUART_RX	"fuart_rx"
+#define	PINNAME_FUART_CTS	"fuart_cts"
+#define PINNAME_FUART_RTS	"fuart_rts"
+#define PINNAME_SPI0_CZ		"spi0_cz"
+#define PINNAME_SPI0_CZ1	"spi0_cz1"
+#define PINNAME_SPI0_CK		"spi0_ck"
+#define PINNAME_SPI0_DI		"spi0_di"
+#define PINNAME_SPI0_DO		"spi0_do"
+#define PINNAME_SD_CLK		"sd_clk"
+#define PINNAME_SD_CMD		"sd_cmd"
+#define PINNAME_SD_D0		"sd_d0"
+#define PINNAME_SD_D1		"sd_d1"
+#define PINNAME_SD_D2		"sd_d2"
+#define PINNAME_SD_D3		"sd_d3"
+#define PINNAME_USB_DM		"usb_dm"
+#define PINNAME_USB_DP		"usb_dp"
+#define PINNAME_I2C0_SCL	"i2c0_scl"
+#define PINNAME_I2C0_SDA	"i2c0_sda"
+#define PINNAME_I2C1_SCL	"i2c1_scl"
+#define PINNAME_I2C1_SDA	"i2c1_sda"
+#define PINNAME_ETH_RN		"eth_rn"
+#define PINNAME_ETH_RP		"eth_rp"
+#define PINNAME_ETH_TN		"eth_tn"
+#define PINNAME_ETH_TP		"eth_tp"
+
+/* MSC313/MSC313E */
+/* Chip pin numbers */
+
+#define PIN_MSC313_PM_SD_CDZ	15
+#define PIN_MSC313_PM_IRIN	16
+#define PIN_MSC313_PM_UART_RX	18
+#define PIN_MSC313_PM_UART_TX	19
+#define PIN_MSC313_PM_GPIO4	21
+#define PIN_MSC313_PM_SPI_CZ	22
+#define PIN_MSC313_PM_SPI_DI	23
+#define PIN_MSC313_PM_SPI_WPZ	24
+#define PIN_MSC313_PM_SPI_DO	25
+#define PIN_MSC313_PM_SPI_CK	26
+#define PIN_MSC313_ETH_RN	31
+#define PIN_MSC313_ETH_RP	32
+#define PIN_MSC313_ETH_TN	33
+#define PIN_MSC313_ETH_TP	34
+#define PIN_MSC313_FUART_RX	36
+#define PIN_MSC313_FUART_TX	37
+#define PIN_MSC313_FUART_CTS	38
+#define PIN_MSC313_FUART_RTS	39
+#define PIN_MSC313_I2C1_SCL	41
+#define PIN_MSC313_I2C1_SDA	42
+#define PIN_MSC313_SR_IO2	44
+#define PIN_MSC313_SR_IO3	45
+#define PIN_MSC313_SR_IO4	46
+#define PIN_MSC313_SR_IO5	47
+#define PIN_MSC313_SR_IO6	48
+#define PIN_MSC313_SR_IO7	49
+#define PIN_MSC313_SR_IO8	50
+#define PIN_MSC313_SR_IO9	51
+#define PIN_MSC313_SR_IO10	52
+#define PIN_MSC313_SR_IO11	53
+#define PIN_MSC313_SR_IO12	54
+#define PIN_MSC313_SR_IO13	55
+#define PIN_MSC313_SR_IO14	56
+#define PIN_MSC313_SR_IO15	57
+#define PIN_MSC313_SR_IO16	58
+#define PIN_MSC313_SR_IO17	59
+#define PIN_MSC313_SPI0_CZ	63
+#define PIN_MSC313_SPI0_CK	64
+#define PIN_MSC313_SPI0_DI	65
+#define PIN_MSC313_SPI0_DO	66
+#define PIN_MSC313_SD_CLK	68
+#define PIN_MSC313_SD_CMD	69
+#define PIN_MSC313_SD_D0	70
+#define PIN_MSC313_SD_D1	71
+#define PIN_MSC313_SD_D2	72
+#define PIN_MSC313_SD_D3	73
+#define PIN_MSC313_USB_DM	75
+#define PIN_MSC313_USB_DP	76
+
+#endif
