@@ -3,6 +3,9 @@
  * Copyright (C) 2019 Daniel Palmer
  */
 
+#define MAKEMASK(_what) \
+	GENMASK((SHIFT_##_what + WIDTH_##_what) - 1, SHIFT_##_what)
+
 #define REG_UARTS		0xc
 #define REG_PWMS		0x1c
 #define REG_SDIO_NAND		0x20
@@ -82,6 +85,43 @@
 #define REG_TX_MIPI	REG_TX_MIPI_UART2
 #define MASK_TX_MIPI	(BIT(1) | BIT(0))
 
+/* ssd201/202d */
+/*
+ * for ssd20xd the uart registers are at the same place but
+ * there are more muxing options
+ */
+#define REG_SSD20XD_FUART	REG_FUART
+#define SHIFT_SSD20XD_FUART	0
+#define WIDTH_SSD20XD_FUART	3
+#define MASK_SSD20XD_FUART	(BIT(2) | BIT(1) | BIT(0))
+#define REG_SSD20XD_UART0	REG_UART0
+#define SHIFT_SSD20XD_UART0	4
+#define WIDTH_SSD20XD_UART0	3
+#define MASK_SSD20XD_UART0	(BIT(6) | BIT(5) | BIT(4))
+#define REG_SSD20XD_UART1	REG_UART1
+#define SHIFT_SSD20XD_UART1	8
+#define WIDTH_SSD20XD_UART1	3
+#define MASK_SSD20XD_UART1	(BIT(10) | BIT(9) | BIT(8))
+#define REG_SSD20XD_UART2	REG_UARTS
+#define SHIFT_SSD20XD_UART2	12
+#define WIDTH_SSD20XD_UART2	3
+#define MASK_SSD20XD_UART2	(BIT(14) | BIT(13) | BIT(12))
+/*
+ * for ssd20xd the i2c registers are at the same place but
+ * there are more muxing options
+ */
+#define REG_SSD20XD_I2C1	REG_I2C1
+#define SHIFT_SSD20XD_I2C1	4
+#define WIDTH_SSD20XD_I2C1	3
+#define MASK_SSD20XD_I2C1	MAKEMASK(SSD20XD_I2C1)
+
+#define REG_SSD20XD_TTL		0x34
+#define MASK_SSD20XD_TTL	(BIT(11) | BIT(10) | BIT(9) | BIT(8))
+#define REG_SSD20XD_ETH		0x38
+#define MASK_SSD20XD_ETH0	BIT(0)
+#define MASK_SSD20XD_ETH1	(BIT(11) | BIT(10) | BIT(9) | BIT(8))
+
+
 /* common pin group names */
 #define GROUPNAME_PM_UART		"pm_uart"
 #define GROUPNAME_PM_SPI		"pm_spi"
@@ -91,6 +131,10 @@
 #define GROUPNAME_USB1			"usb1"
 #define GROUPNAME_I2C0			"i2c0"
 #define GROUPNAME_I2C1			"i2c1"
+#define GROUPNAME_I2C1_MODE1		"i2c1_mode1"
+#define GROUPNAME_I2C1_MODE3		"i2c1_mode3"
+#define GROUPNAME_I2C1_MODE4		"i2c1_mode4"
+#define GROUPNAME_I2C1_MODE5		"i2c1_mode5"
 #define GROUPNAME_FUART			"fuart"
 #define GROUPNAME_FUART_RX		"fuart_rx"
 #define GROUPNAME_FUART_TX		"fuart_tx"
@@ -100,8 +144,16 @@
 #define GROUPNAME_FUART_RX_TX_RTS	"fuart_rx_tx_rts"
 #define GROUPNAME_FUART_CTS_RTS		"fuart_cts_rts"
 #define GROUPNAME_FUART_CTS		"fuart_cts"
+#define GROUPNAME_FUART_MODE1		"fuart_mode1"
+#define GROUPNAME_FUART_MODE2		"fuart_mode2"
+#define GROUPNAME_FUART_MODE3		"fuart_mode3"
+#define GROUPNAME_FUART_MODE4		"fuart_mode4"
+#define GROUPNAME_FUART_MODE5		"fuart_mode5"
+#define GROUPNAME_FUART_MODE6		"fuart_mode6"
+#define GROUPNAME_FUART_MODE7		"fuart_mode7"
 #define GROUPNAME_UART0			"uart0"
 #define GROUPNAME_UART1			"uart1"
+#define GROUPNAME_UART1_MODE1		"uart_mode1"
 #define GROUPNAME_ETH			"eth"
 #define GROUPNAME_PWM0			"pwm0"
 #define GROUPNAME_PWM1			"pwm1"
@@ -127,6 +179,8 @@
 #define GROUPNAME_TX_MIPI_MODE2		"tx_mipi_mode2"
 #endif
 
+#define GROUPNAME_TTL_MODE1		"ttl_mode1"
+
 /* common group function names */
 #define FUNCTIONNAME_PM_UART	GROUPNAME_PM_UART
 #define FUNCTIONNAME_PM_SPI	GROUPNAME_PM_SPI
@@ -135,6 +189,7 @@
 #define FUNCTIONNAME_FUART	GROUPNAME_FUART
 #define FUNCTIONNAME_UART0	GROUPNAME_UART0
 #define FUNCTIONNAME_UART1	GROUPNAME_UART1
+#define FUNCTIONNAME_UART2	"uart2"
 #define FUNCTIONNAME_ETH	GROUPNAME_ETH
 #define FUNCTIONNAME_JTAG	"jtag"
 #define FUNCTIONNAME_PWM0	GROUPNAME_PWM0
@@ -156,3 +211,4 @@
 #define FUNCTIONNAME_SR1_MIPI	"sr1_mipi"
 
 #define FUNCTIONNAME_TX_MIPI	"tx_mipi"
+#define FUNCTIONNAME_TTL	"ttl"
