@@ -632,7 +632,7 @@ static const struct msc313_pinctrl_function ssc8336n_pinctrl_functions[] = {
 	COMMON_FIXED_FUNCTION(USB1, usb1)
 };
 
-static const struct mc313_pinctrl_pinconf ssc8336n_configurable_pins[] = {
+static const struct msc313_pinctrl_pinconf ssc8336n_configurable_pins[] = {
 };
 
 MSTAR_PINCTRL_INFO(ssc8336n);
