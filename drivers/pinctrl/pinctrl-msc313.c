@@ -414,7 +414,6 @@ static const struct msc313_pinctrl_pinconf msc313_configurable_pins[] = {
 MSTAR_PINCTRL_INFO(msc313);
 
 /* ssd20xd */
-
 #define SSD20XD_COMMON_PIN(_pinname) COMMON_PIN(SSD20XD, _pinname)
 
 /* pinctrl pins */
@@ -497,23 +496,24 @@ static const struct pinctrl_pin_desc ssd20xd_pins[] = {
 };
 
 /* mux pin groupings */
-static const int ssd20xd_pm_spi_pins[] = { PIN_SSD20XD_PM_SPI_CZ, PIN_SSD20XD_PM_SPI_DI,
-				     PIN_SSD20XD_PM_SPI_WPZ, PIN_SSD20XD_PM_SPI_DO,
-				     PIN_SSD20XD_PM_SPI_CK, PIN_SSD20XD_PM_SPI_HLD };
+static const int ssd20xd_pm_spi_pins[]  = { PIN_SSD20XD_PM_SPI_CZ, PIN_SSD20XD_PM_SPI_DI,
+					   PIN_SSD20XD_PM_SPI_WPZ, PIN_SSD20XD_PM_SPI_DO,
+					   PIN_SSD20XD_PM_SPI_CK, PIN_SSD20XD_PM_SPI_HLD };
 static const int ssd20xd_pm_uart_pins[] = { PIN_SSD20XD_PM_UART_RX, PIN_SSD20XD_PM_UART_TX, };
 static const int ssd20xd_fuart_pins[]   = { PIN_SSD20XD_FUART_RX, PIN_SSD20XD_FUART_TX,
-				      PIN_SSD20XD_FUART_CTS, PIN_SSD20XD_FUART_RTS };
-static const int ssd20xd_usb_pins[] =    { PIN_SSD20XD_USB_DP, PIN_SSD20XD_USB_DM, };
-static const int ssd20xd_usb1_pins[] =    { PIN_SSD20XD_USB1_DP, PIN_SSD20XD_USB1_DM, };
-static const int ssd20xd_sd_pins[] =	    { PIN_SSD20XD_SD_D1, PIN_SSD20XD_SD_D0,
-				      PIN_SSD20XD_SD_CLK, PIN_SSD20XD_SD_CMD,
-				      PIN_SSD20XD_SD_D3,PIN_SSD20XD_SD_D2 };
-static const int ssd20xd_eth_pins[] =     { PIN_SSD20XD_ETH_RN, PIN_SSD20XD_ETH_RP,
-				      PIN_SSD20XD_ETH_TN, PIN_SSD20XD_ETH_TP };
+					    PIN_SSD20XD_FUART_CTS, PIN_SSD20XD_FUART_RTS };
+static const int ssd20xd_usb_pins[]     = { PIN_SSD20XD_USB_DP, PIN_SSD20XD_USB_DM, };
+static const int ssd20xd_usb1_pins[]    = { PIN_SSD20XD_USB1_DP, PIN_SSD20XD_USB1_DM, };
+static const int ssd20xd_sd_pins[]      = { PIN_SSD20XD_SD_D1, PIN_SSD20XD_SD_D0,
+					    PIN_SSD20XD_SD_CLK, PIN_SSD20XD_SD_CMD,
+					    PIN_SSD20XD_SD_D3,PIN_SSD20XD_SD_D2 };
+static const int ssd20xd_eth_pins[]     = { PIN_SSD20XD_ETH_RN, PIN_SSD20XD_ETH_RP,
+					    PIN_SSD20XD_ETH_TN, PIN_SSD20XD_ETH_TP };
 
-#define SSD20XD_PINCTRL_GROUP(_NAME, _name) MSTAR_PINCTRL_GROUP(GROUPNAME_##_NAME, ssd20xd_##_name##_pins)
+#define SSD20XD_PINCTRL_GROUP(_NAME, _name) \
+	MSTAR_PINCTRL_GROUP(GROUPNAME_##_NAME, ssd20xd_##_name##_pins)
 
-static const struct mstar_pinctrl_group ssd20xd_pinctrl_groups[] = {
+static const struct msc313_pinctrl_group ssd20xd_pinctrl_groups[] = {
 	SSD20XD_PINCTRL_GROUP(PM_SPI, pm_spi),
 	SSD20XD_PINCTRL_GROUP(PM_UART, pm_uart),
 	SSD20XD_PINCTRL_GROUP(FUART, fuart),
@@ -523,7 +523,7 @@ static const struct mstar_pinctrl_group ssd20xd_pinctrl_groups[] = {
 	SSD20XD_PINCTRL_GROUP(ETH, eth),
 };
 
-static const struct mstar_pinctrl_function ssd20xd_pinctrl_functions[] = {
+static const struct msc313_pinctrl_function ssd20xd_pinctrl_functions[] = {
 	COMMON_FIXED_FUNCTION(PM_SPI, pm_spi),
 	COMMON_FIXED_FUNCTION(PM_UART, pm_uart),
 	COMMON_FIXED_FUNCTION(USB, usb),
@@ -533,7 +533,7 @@ static const struct mstar_pinctrl_function ssd20xd_pinctrl_functions[] = {
 	COMMON_FUNCTION(ETH, eth),
 };
 
-static const struct mstar_configurable_pin ssd20xd_configurable_pins[] = {
+static const struct msc313_pinctrl_pinconf ssd20xd_configurable_pins[] = {
 	SD_PINS(SSD20XD),
 };
 
