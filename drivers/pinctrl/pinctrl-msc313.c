@@ -415,9 +415,10 @@ MSTAR_PINCTRL_INFO(msc313);
 #endif /* infinity */
 
 #ifdef CONFIG_MACH_MERCURY
-/* pinctrl pins */
+/* ssc8336 */
 #define SSC8336N_COMMON_PIN(_pinname) COMMON_PIN(SSC8336N, _pinname)
 
+/* pinctrl pins */
 static const struct pinctrl_pin_desc ssc8336n_pins[] = {
 	SSC8336N_COMMON_PIN(USB_DM1),
 	SSC8336N_COMMON_PIN(USB_DP1),
@@ -603,7 +604,7 @@ static const int ssc8336n_tx_mipi_mode2_pins[] = {
 #define GROUPNAME_LCD_DO_TO_D9	"lcd_d0_to_d9"
 #define GROUPNAME_SR0_D2_TO_D11	"sr0_d2_to_d11"
 
-static const struct mstar_pinctrl_group ssc8336n_pinctrl_groups[] = {
+static const struct msc313_pinctrl_group ssc8336n_pinctrl_groups[] = {
 	SSC8336N_PINCTRL_GROUP(PM_UART,pm_uart),
 	SSC8336N_PINCTRL_GROUP(PM_SPI,pm_spi),
 	SSC8336N_PINCTRL_GROUP(I2C0,i2c0),
@@ -622,7 +623,7 @@ static const struct mstar_pinctrl_group ssc8336n_pinctrl_groups[] = {
 	SSC8336N_PINCTRL_GROUP(TX_MIPI_MODE2, tx_mipi_mode2),
 };
 
-static const struct mstar_pinctrl_function ssc8336n_pinctrl_functions[] = {
+static const struct msc313_pinctrl_function ssc8336n_pinctrl_functions[] = {
 	COMMON_FUNCTIONS,
 	COMMON_FUNCTION(SR0_MIPI, sr0_mipi),
 	COMMON_FUNCTION(SR1_BT656, sr1_bt656),
@@ -631,7 +632,7 @@ static const struct mstar_pinctrl_function ssc8336n_pinctrl_functions[] = {
 	COMMON_FIXED_FUNCTION(USB1, usb1)
 };
 
-static const struct mstar_configurable_pin ssc8336n_configurable_pins[] = {
+static const struct mc313_pinctrl_pinconf ssc8336n_configurable_pins[] = {
 };
 
 MSTAR_PINCTRL_INFO(ssc8336n);
