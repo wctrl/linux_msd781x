@@ -63,3 +63,7 @@
 &pm_uart {
 	status = "okay";
 };
+
+&emac {
+	status = "okay";
+};
