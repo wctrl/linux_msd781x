@@ -5,7 +5,7 @@
 #include <linux/of_platform.h>
 #include <linux/regmap.h>
 #include <crypto/engine.h>
-#include <crypto/sha.h>
+#include <crypto/sha2.h>
 #include <soc/mstar/riu.h>
 #include <linux/clk.h>
 #include <linux/dma-mapping.h>
