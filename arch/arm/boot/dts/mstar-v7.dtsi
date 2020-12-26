@@ -631,9 +631,41 @@
 					function = "fuart";
 					groups = "fuart";
 				};
+				fuart_mode1_pins: fuart_mode1 {
+					function = "fuart";
+					groups = "fuart_mode1";
+				};
+				fuart_mode2_pins: fuart_mode2 {
+					function = "fuart";
+					groups = "fuart_mode2";
+				};
+				fuart_mode3_pins: fuart_mode3 {
+					function = "fuart";
+					groups = "fuart_mode3";
+				};
+				fuart_mode4_pins: fuart_mode4 {
+					function = "fuart";
+					groups = "fuart_mode4";
+				};
+				fuart_mode5_pins: fuart_mode5 {
+					function = "fuart";
+					groups = "fuart_mode5";
+				};
+				fuart_mode6_pins: fuart_mode6 {
+					function = "fuart";
+					groups = "fuart_mode6";
+				};
+				fuart_mode7_pins: fuart_mode7 {
+					function = "fuart";
+					groups = "fuart_mode7";
+				};
 				fuart_rx_tx_rts_pins: fuart_rx_tx_rts {
 					function = "fuart";
 					groups = "fuart_rx_tx_rts";
+				};
+				uart1_mode1_pins: uart1_mode1 {
+					function = "uart1";
+					groups = "uart_mode1";
 				};
 				uart1_pins: uart1 {
 					function = "uart1";
