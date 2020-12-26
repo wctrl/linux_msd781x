@@ -683,6 +683,22 @@
 					function = "i2c1";
 					groups = "i2c1";
 				};
+				i2c1_mode1_pins: i2c1_mode1 {
+					function = "i2c1";
+					groups = "i2c1_mode1";
+				};
+				i2c1_mode3_pins: i2c1_mode3 {
+					function = "i2c1";
+					groups = "i2c1_mode3";
+				};
+				i2c1_mode4_pins: i2c1_mode4 {
+					function = "i2c1";
+					groups = "i2c1_mode4";
+				};
+				i2c1_mode5_pins: i2c1_mode5 {
+					function = "i2c1";
+					groups = "i2c1_mode5";
+				};
 				spi0_spi0_pins: spi0_spi0 {
 					function = "spi0";
 					groups = "spi0";
