@@ -506,54 +506,81 @@ static const int ssd20xd_pm_spi_pins[] = {
 	PIN_SSD20XD_PM_SPI_CK,
 	PIN_SSD20XD_PM_SPI_HLD,
 };
+
 static const int ssd20xd_pm_uart_pins[] = {
 	PIN_SSD20XD_PM_UART_RX,
 	PIN_SSD20XD_PM_UART_TX,
 };
+
 static const int ssd20xd_fuart_mode1_pins[] = {
 	PIN_SSD20XD_FUART_RX,
 	PIN_SSD20XD_FUART_TX,
 	PIN_SSD20XD_FUART_CTS,
 	PIN_SSD20XD_FUART_RTS
 };
+
 static const int ssd20xd_fuart_mode2_pins[] = {
 	PIN_SSD20XD_FUART_RX,
 	PIN_SSD20XD_FUART_TX,
 };
+
 static const int ssd20xd_fuart_mode3_pins[] = {
 	PIN_SSD20XD_TTL0,
 	PIN_SSD20XD_TTL1,
 };
+
 static const int ssd20xd_fuart_mode4_pins[] = {
 	PIN_SSD20XD_TTL20,
 	PIN_SSD20XD_TTL21,
 };
+
 static const int ssd20xd_fuart_mode5_pins[] = {
 	PIN_SSD20XD_GPIO0,
 	PIN_SSD20XD_GPIO1,
 	PIN_SSD20XD_GPIO2,
 	PIN_SSD20XD_GPIO3,
 };
+
 static const int ssd20xd_fuart_mode6_pins[] = {
 	PIN_SSD20XD_GPIO4,
 	PIN_SSD20XD_GPIO5,
 	PIN_SSD20XD_TTL16,
 };
+
 static const int ssd20xd_fuart_mode7_pins[] = {
 	PIN_SSD20XD_SD_D1,
 	PIN_SSD20XD_SD_D0,
 };
+
 static const int ssd20xd_uart1_mode1_pins[] = {
 	PIN_SSD20XD_UART1_RX,
 	PIN_SSD20XD_UART1_TX,
 };
-static const int ssd20xd_usb_pins[]     = { PIN_SSD20XD_USB_DP, PIN_SSD20XD_USB_DM, };
-static const int ssd20xd_usb1_pins[]    = { PIN_SSD20XD_USB1_DP, PIN_SSD20XD_USB1_DM, };
-static const int ssd20xd_sd_pins[]      = { PIN_SSD20XD_SD_D1, PIN_SSD20XD_SD_D0,
-					    PIN_SSD20XD_SD_CLK, PIN_SSD20XD_SD_CMD,
-					    PIN_SSD20XD_SD_D3,PIN_SSD20XD_SD_D2 };
-static const int ssd20xd_eth_pins[]     = { PIN_SSD20XD_ETH_RN, PIN_SSD20XD_ETH_RP,
-					    PIN_SSD20XD_ETH_TN, PIN_SSD20XD_ETH_TP };
+
+static const int ssd20xd_usb_pins[] = {
+	PIN_SSD20XD_USB_DP,
+	PIN_SSD20XD_USB_DM,
+};
+
+static const int ssd20xd_usb1_pins[] = {
+	PIN_SSD20XD_USB1_DP,
+	PIN_SSD20XD_USB1_DM,
+};
+
+static const int ssd20xd_sd_pins[] = {
+	PIN_SSD20XD_SD_D1,
+	PIN_SSD20XD_SD_D0,
+	PIN_SSD20XD_SD_CLK,
+	PIN_SSD20XD_SD_CMD,
+	PIN_SSD20XD_SD_D3,PIN_SSD20XD_SD_D2
+};
+
+static const int ssd20xd_eth_pins[] = {
+	PIN_SSD20XD_ETH_RN,
+	PIN_SSD20XD_ETH_RP,
+	PIN_SSD20XD_ETH_TN,
+	PIN_SSD20XD_ETH_TP,
+};
 
 static const int ssd20xd_ttl_mode1_pins[] = {
 	PIN_SSD20XD_TTL0,
@@ -670,7 +697,7 @@ static const char * const ssd20xd_ttl_groups[] = {
 	GROUPNAME_TTL_MODE1
 };
 static const u16 ssd20xd_ttl_values[] = {
-	BIT(8)
+	SSD20XD_MODE(TTL, 1),
 };
 
 static const char * const ssd20xd_i2c1_groups[] = {
