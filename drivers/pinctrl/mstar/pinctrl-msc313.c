@@ -17,10 +17,10 @@
 
 #include <dt-bindings/pinctrl/mstar.h>
 
-#include "core.h"
-#include "devicetree.h"
-#include "pinconf.h"
-#include "pinmux.h"
+#include "../core.h"
+#include "../devicetree.h"
+#include "../pinconf.h"
+#include "../pinmux.h"
 
 #include "pinctrl-mstar.h"
 
