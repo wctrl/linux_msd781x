@@ -127,6 +127,7 @@
 /* common pin group names */
 #define GROUPNAME_PM_UART		"pm_uart"
 #define GROUPNAME_PM_SPI		"pm_spi"
+#define GROUPNAME_PM_LED_MODE1		"pm_led_mode1"
 #define GROUPNAME_SD			"sd"
 #define GROUPNAME_SD_D0_D1_D2_D3	"sd_d0_d1_d2_d3"
 #define GROUPNAME_USB			"usb"
@@ -186,6 +187,7 @@
 /* common group function names */
 #define FUNCTIONNAME_PM_UART	GROUPNAME_PM_UART
 #define FUNCTIONNAME_PM_SPI	GROUPNAME_PM_SPI
+#define FUNCTIONNAME_PM_LED	"pm_led"
 #define FUNCTIONNAME_USB	GROUPNAME_USB
 #define FUNCTIONNAME_USB1	GROUPNAME_USB1
 #define FUNCTIONNAME_FUART	GROUPNAME_FUART
@@ -214,3 +216,18 @@
 
 #define FUNCTIONNAME_TX_MIPI	"tx_mipi"
 #define FUNCTIONNAME_TTL	"ttl"
+
+/* for pins that have the same on the different chips */
+#define COMMON_PIN(_model, _pinname) \
+	PINCTRL_PIN(PIN_##_model##_##_pinname, PINNAME_##_pinname)
+
+#define SSD20XD_COMMON_PIN(_pinname) COMMON_PIN(SSD20XD, _pinname)
+
+#define SSD20XD_PINCTRL_GROUP(_NAME, _name) \
+	MSTAR_PINCTRL_GROUP(GROUPNAME_##_NAME, ssd20xd_##_name##_pins)
+
+#define SSD20XD_MODE(_func, _modenum) (_modenum << SHIFT_SSD20XD_##_func)
+
+#define SSD20XD_FUNCTION(_NAME, _name) \
+	MSTAR_PINCTRL_FUNCTION(FUNCTIONNAME_##_NAME, REG_SSD20XD_##_NAME, \
+	MASK_SSD20XD_##_NAME, ssd20xd_##_name##_groups, ssd20xd_##_name##_values)
