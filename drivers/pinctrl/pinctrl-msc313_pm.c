@@ -1,0 +1,602 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2020 Daniel Palmer
+ */
+
+#include <linux/err.h>
+#include <linux/gpio/driver.h>
+#include <linux/init.h>
+#include <linux/module.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/of_device.h>
+#include <linux/pinctrl/pinconf-generic.h>
+#include <linux/pinctrl/pinctrl.h>
+#include <linux/pinctrl/pinmux.h>
+#include <linux/regmap.h>
+
+#include <dt-bindings/pinctrl/mstar.h>
+
+#include "core.h"
+#include "devicetree.h"
+#include "pinconf.h"
+#include "pinmux.h"
+
+#include "pinctrl-mstar.h"
+
+#define DRIVER_NAME "pinctrl-mstar-pm"
+
+struct msc313_pinctrl {
+	struct device *dev;
+	struct pinctrl_desc desc;
+	struct pinctrl_dev *pctl;
+	void __iomem *mux;
+	struct regmap *regmap;
+	const struct msc313_pinctrl_info *info;
+};
+
+/* for pins that have the same on the different chips */
+#define COMMON_PIN(_model, _pinname) \
+	PINCTRL_PIN(PIN_##_model##_##_pinname, PINNAME_##_pinname)
+
+struct msc313_pinctrl_function {
+	const char *name;
+	int reg;
+	u16 mask;
+	const char * const *groups;
+	const u16 *values;
+	int numgroups;
+};
+
+#define MSTAR_PINCTRL_FUNCTION(n, r, m, g, v) \
+	{ \
+		.name = n,\
+		.reg = r,\
+		.mask = m,\
+		.groups = g,\
+		.values = v,\
+		.numgroups = ARRAY_SIZE(g)\
+	}
+
+struct msc313_pinctrl_group {
+	const char *name;
+	const int *pins;
+	const int numpins;
+};
+
+#define MSTAR_PINCTRL_GROUP(n, p) \
+	{\
+		.name = n,\
+		.pins = p,\
+		.numpins = ARRAY_SIZE(p)\
+	}
+
+/*
+ * Not all pins have "pinconf" so we only
+ * carry this extra info for those that do.
+ *
+ * For some pins all of these bits in the same
+ * register, for others they are split across
+ * registers. Not all pins have all of the
+ * registers.
+ */
+struct msc313_pinctrl_pinconf {
+	const int pin;
+	const int pull_en_reg;
+	const int pull_en_bit;
+	const int pull_dir_reg;
+	const int pull_dir_bit;
+	const int input_reg;
+	const int input_bit;
+	const int drive_reg;
+	const int drive_lsb;
+	const int drive_width;
+	const unsigned int *drivecurrents;
+	const int ndrivecurrents;
+};
+
+/* There isn't a register for the function for this pin */
+#define NOREG		-1
+/*
+ * If used for pull_en_reg this means there is an always
+ * on pull up, if used for pull_dir_reg there is an optional
+ * pull up.
+ */
+#define ALWAYS_PULLUP	-2
+/* See above but for pull down. */
+#define ALWAYS_PULLDOWN	-3
+
+#define MSTAR_PINCTRL_PIN(_pin, _pull_en_reg, _pull_en_bit, \
+		_pull_dir_reg, _pull_dir_bit, \
+		_drive_reg, _drive_lsb, _drive_width, _drivecurrents) \
+	{ \
+		.pin = _pin, \
+		.pull_en_reg = _pull_en_reg, \
+		.pull_en_bit = _pull_en_bit, \
+		.pull_dir_reg = _pull_dir_reg, \
+		.pull_dir_bit = _pull_dir_bit, \
+		.drive_reg = _drive_reg, \
+		.drive_lsb = _drive_lsb, \
+		.drive_width = _drive_width, \
+		.drivecurrents = _drivecurrents, \
+		.ndrivecurrents = ARRAY_SIZE(_drivecurrents) \
+	}
+
+/*
+ * Per-chip info that describes all of the pins,
+ * the pin groups, the mappable functions and
+ * pins that support pinconf.
+ */
+struct msc313_pinctrl_info {
+	const struct pinctrl_pin_desc *pins;
+	const int npins;
+	const struct msc313_pinctrl_group *groups;
+	const int ngroups;
+	const struct msc313_pinctrl_function *functions;
+	const int nfunctions;
+	const struct msc313_pinctrl_pinconf *pinconfs;
+	const int npinconfs;
+};
+
+#define MSTAR_PINCTRL_INFO(_chip) static const struct msc313_pinctrl_info _chip##_info = { \
+	.pins = _chip##_pins, \
+	.npins = ARRAY_SIZE(_chip##_pins), \
+	.groups = _chip##_pinctrl_groups, \
+	.ngroups = ARRAY_SIZE(_chip##_pinctrl_groups), \
+	.functions = _chip##_pinctrl_functions, \
+	.nfunctions = ARRAY_SIZE(_chip##_pinctrl_functions), \
+	.pinconfs = _chip##_configurable_pins, \
+	.npinconfs = ARRAY_SIZE(_chip##_configurable_pins),\
+}
+
+#if CONFIG_MACH_INFINITY
+#define MSC313_COMMON_PIN(_pinname) COMMON_PIN(MSC313, _pinname)
+/* msc313/msc313e */
+
+/* pinctrl pins */
+static struct pinctrl_pin_desc msc313_pins[] = {
+};
+
+/* mux pin groupings */
+
+
+#define MSC313_PINCTRL_GROUP(_NAME, _name) MSTAR_PINCTRL_GROUP(GROUPNAME_##_NAME, msc313_##_name##_pins)
+
+static const struct msc313_pinctrl_group msc313_pinctrl_groups[] = {
+};
+
+static const struct msc313_pinctrl_function msc313_pinctrl_functions[] = {
+};
+
+static const struct msc313_pinctrl_pinconf msc313_configurable_pins[] = {
+};
+
+MSTAR_PINCTRL_INFO(msc313);
+
+/* ssd20xd */
+#define SSD20XD_COMMON_PIN(_pinname) COMMON_PIN(SSD20XD, _pinname)
+
+/* pinctrl pins */
+static const struct pinctrl_pin_desc ssd20xd_pins[] = {
+};
+
+/* mux pin groupings */
+
+#define SSD20XD_PINCTRL_GROUP(_NAME, _name) \
+	MSTAR_PINCTRL_GROUP(GROUPNAME_##_NAME, ssd20xd_##_name##_pins)
+
+static const struct msc313_pinctrl_group ssd20xd_pinctrl_groups[] = {
+};
+
+/* chip specific functions */
+#define SSD20XD_MODE(_func, _modenum) (_modenum << SHIFT_SSD20XD_##_func)
+
+#define SSD20XD_FUNCTION(_NAME, _name) \
+	MSTAR_PINCTRL_FUNCTION(FUNCTIONNAME_##_NAME, REG_SSD20XD_##_NAME, \
+	MASK_SSD20XD_##_NAME, ssd20xd_##_name##_groups, ssd20xd_##_name##_values)
+
+static const struct msc313_pinctrl_function ssd20xd_pinctrl_functions[] = {
+};
+
+static const struct msc313_pinctrl_pinconf ssd20xd_configurable_pins[] = {
+};
+
+MSTAR_PINCTRL_INFO(ssd20xd);
+#endif /* infinity */
+
+#ifdef CONFIG_MACH_MERCURY
+/* ssc8336 */
+#define SSC8336N_COMMON_PIN(_pinname) COMMON_PIN(SSC8336N, _pinname)
+
+/* pinctrl pins */
+static const struct pinctrl_pin_desc ssc8336n_pins[] = {
+};
+
+/* mux pin groupings */
+
+#define SSC8336N_PINCTRL_GROUP(_NAME, _name) MSTAR_PINCTRL_GROUP(GROUPNAME_##_NAME, ssc8336n_##_name##_pins)
+
+/* pinctrl groups */
+
+static const struct msc313_pinctrl_group ssc8336n_pinctrl_groups[] = {
+};
+
+#define SSC8336N_FUNCTION(_NAME, _name) \
+	MSTAR_PINCTRL_FUNCTION(FUNCTIONNAME_##_NAME, REG_SSC8336N_##_NAME, \
+	MASK_SSC8336N_##_NAME, ssc8336n_##_name##_groups, ssc8336n_##_name##_values)
+
+static const struct msc313_pinctrl_function ssc8336n_pinctrl_functions[] = {
+};
+
+static const struct msc313_pinctrl_pinconf ssc8336n_configurable_pins[] = {
+};
+
+MSTAR_PINCTRL_INFO(ssc8336n);
+#endif /* mercury5 */
+
+static int mstar_dt_node_to_map(struct pinctrl_dev *pctldev,
+			       struct device_node *np,
+			       struct pinctrl_map **map,
+			       unsigned int *num_maps)
+{
+	return pinconf_generic_dt_node_to_map(pctldev, np,
+						map, num_maps,
+						PIN_MAP_TYPE_INVALID);
+}
+
+static void mstar_dt_free_map(struct pinctrl_dev *pctldev,
+			     struct pinctrl_map *map, unsigned int num_maps)
+{
+	kfree(map);
+}
+
+static const struct pinctrl_ops msc313_pinctrl_ops = {
+	.get_groups_count	= pinctrl_generic_get_group_count,
+	.get_group_name		= pinctrl_generic_get_group_name,
+	.get_group_pins		= pinctrl_generic_get_group_pins,
+	.dt_node_to_map		= mstar_dt_node_to_map,
+	.dt_free_map		= mstar_dt_free_map,
+};
+
+static int mstar_set_mux(struct pinctrl_dev *pctldev, unsigned int func,
+			   unsigned int group)
+{
+	struct msc313_pinctrl *pinctrl = pctldev->driver_data;
+	const char *grpname = pinctrl_generic_get_group_name(pctldev, group);
+	struct function_desc *funcdesc = pinmux_generic_get_function(pctldev, func);
+	struct msc313_pinctrl_function *function = funcdesc->data;
+	int i, ret = 0;
+
+	if(function != NULL){
+		if(function->reg >= 0 && function->values != NULL){
+			for(i = 0; i < function->numgroups; i++){
+				if(strcmp(function->groups[i], grpname) == 0){
+					dev_dbg(pinctrl->dev, "updating mux reg %x\n", (unsigned) function->reg);
+					ret = regmap_update_bits(pinctrl->regmap, function->reg,
+							function->mask, function->values[i]);
+					if(ret)
+						dev_dbg(pinctrl->dev, "failed to update register\n");
+					break;
+				}
+			}
+		}
+		else {
+			dev_dbg(pinctrl->dev, "reg or values not found\n");
+		}
+	}
+	else {
+		dev_info(pinctrl->dev, "missing function data\n");
+	}
+
+	return ret;
+}
+
+static const struct pinmux_ops mstar_pinmux_ops = {
+	.get_functions_count = pinmux_generic_get_function_count,
+	.get_function_name   = pinmux_generic_get_function_name,
+	.get_function_groups = pinmux_generic_get_function_groups,
+	.set_mux             = mstar_set_mux,
+	.strict              = true,
+};
+
+static int msc313_pinctrl_parse_groups(struct msc313_pinctrl *pinctrl){
+	int i, ret;
+
+	for(i = 0; i < pinctrl->info->ngroups; i++){
+		const struct msc313_pinctrl_group *grp = &pinctrl->info->groups[i];
+		ret = pinctrl_generic_add_group(pinctrl->pctl, grp->name,
+				(int*) grp->pins, grp->numpins, NULL);
+	}
+	return ret;
+}
+
+static int msc313_pinctrl_parse_functions(struct msc313_pinctrl *pinctrl){
+	int i, ret;
+
+	for(i = 0; i < pinctrl->info->nfunctions; i++){
+		const struct msc313_pinctrl_function *func =  &pinctrl->info->functions[i];
+
+		// clear any existing value for the function
+		if(func->reg >= 0){
+			regmap_update_bits(pinctrl->regmap, func->reg,
+					func->mask, 0);
+		}
+
+		ret = pinmux_generic_add_function(pinctrl->pctl, func->name,
+				(const char**) func->groups, func->numgroups, (void*) func);
+		if(ret < 0){
+			dev_err(pinctrl->dev, "failed to add function: %d", ret);
+			goto out;
+		}
+	}
+	out:
+	return ret;
+}
+
+static const struct regmap_config msc313_pinctrl_regmap_config = {
+	.reg_bits = 16,
+	.val_bits = 16,
+	.reg_stride = 4,
+};
+
+static int mstar_set_config(struct msc313_pinctrl *pinctrl, int pin, unsigned long config){
+	enum pin_config_param param = pinconf_to_config_param(config);
+	u32 arg = pinconf_to_config_argument(config);
+	int i;
+	unsigned int mask;
+	const struct msc313_pinctrl_pinconf *confpin;
+	dev_dbg(pinctrl->dev, "setting %d:%u on pin %d\n", (int)config,(unsigned)arg, pin);
+	for(i = 0; i < pinctrl->info->npinconfs; i++){
+		if(pinctrl->info->pinconfs[i].pin == pin){
+			confpin = &pinctrl->info->pinconfs[i];
+			switch(param){
+			case PIN_CONFIG_BIAS_PULL_UP:
+				if(confpin->pull_en_reg != -1){
+					dev_dbg(pinctrl->dev, "setting pull up %d on pin %d\n", (int) arg, pin);
+					mask = 1 << confpin->pull_en_bit;
+					regmap_update_bits(pinctrl->regmap, confpin->pull_en_reg, mask, arg ? mask : 0);
+				}
+				else
+					dev_info(pinctrl->dev, "pullup reg/bit isn't known for pin %d\n", pin);
+			default:
+				break;
+			}
+			return 0;
+		}
+	}
+	return 0;
+}
+
+/*
+ * Check if a pin is one that is always pulled up or down
+ * then check if there is an optional pull up or down, then
+ * check if that is always up or down, and finally if there
+ * is a direction bit check that for the direction.
+ */
+static bool msc313_pinctrl_ispulled(struct msc313_pinctrl *pinctrl,
+		const struct msc313_pinctrl_pinconf *confpin, bool down)
+{
+	unsigned val;
+
+	if(confpin->pull_en_reg == ALWAYS_PULLUP)
+		return !down;
+	else if(confpin->pull_en_reg == ALWAYS_PULLDOWN)
+		return down;
+	else if(confpin->pull_en_reg != NOREG){
+		regmap_read(pinctrl->regmap, confpin->pull_en_reg, &val);
+		if(val & BIT(confpin->pull_en_bit)){
+			if (confpin->pull_dir_reg == ALWAYS_PULLUP)
+				return !down;
+			else if (confpin->pull_dir_reg == ALWAYS_PULLDOWN)
+				return down;
+			else if (confpin->pull_en_reg != NOREG){
+				regmap_read(pinctrl->regmap, confpin->pull_dir_reg, &val);
+				if (val & BIT(confpin->pull_dir_bit))
+					return !down;
+				else
+					return down;
+			}
+			else
+				return false;
+		}
+		else
+			return false;
+	}
+	else
+		return false;
+}
+
+static int msc313_pinctrl_get_config(struct msc313_pinctrl *pinctrl, int pin, unsigned long *config){
+	int i;
+	const struct msc313_pinctrl_pinconf *confpin;
+	unsigned val;
+	enum pin_config_param param = pinconf_to_config_param(*config);
+	unsigned crntidx;
+
+	/* we only support a limited range of conf options so filter the
+	 * ones we do here
+	 */
+
+	switch(param){
+		case PIN_CONFIG_BIAS_PULL_UP:
+		case PIN_CONFIG_BIAS_PULL_DOWN:
+		case PIN_CONFIG_DRIVE_STRENGTH:
+			break;
+		default:
+			return -ENOTSUPP;
+	}
+
+	/* try to find the configuration register(s) for the pin */
+	for(i = 0; i < pinctrl->info->npinconfs; i++){
+		if(pinctrl->info->pinconfs[i].pin == pin){
+			confpin = &pinctrl->info->pinconfs[i];
+			switch(param){
+			case PIN_CONFIG_BIAS_PULL_UP:
+				return msc313_pinctrl_ispulled(pinctrl, confpin, false) ? 0 : -EINVAL;
+			case PIN_CONFIG_BIAS_PULL_DOWN:
+				return msc313_pinctrl_ispulled(pinctrl, confpin, true) ? 0 : -EINVAL;
+			case PIN_CONFIG_DRIVE_STRENGTH:
+				if(confpin->drive_reg != -1){
+					regmap_read(pinctrl->regmap, confpin->drive_reg, &val);
+					crntidx = (val >> confpin->drive_lsb) & BIT_MASK(confpin->drive_width);
+					*config = pinconf_to_config_packed(param, confpin->drivecurrents[crntidx]);
+					return 0;
+				}
+				return -ENOTSUPP;
+			default:
+				return -ENOTSUPP;
+			}
+		}
+	}
+
+	return -ENOTSUPP;
+}
+
+static int mstar_pin_config_get(struct pinctrl_dev *pctldev,
+			       unsigned pin,
+			       unsigned long *config){
+	struct msc313_pinctrl *pinctrl = pctldev->driver_data;
+	return msc313_pinctrl_get_config(pinctrl, pin, config);
+}
+
+static int mstar_pin_config_set(struct pinctrl_dev *pctldev,
+			       unsigned pin,
+			       unsigned long *configs,
+			       unsigned num_configs){
+	int i;
+	struct msc313_pinctrl *pinctrl = pctldev->driver_data;
+	for(i = 0; i < num_configs; i++){
+		mstar_set_config(pinctrl, pin, configs[i]);
+	}
+	return 0;
+}
+
+static int mstar_pin_config_group_get(struct pinctrl_dev *pctldev,
+				     unsigned selector,
+				     unsigned long *config){
+	return -ENOTSUPP;
+}
+
+static int mstar_pin_config_group_set(struct pinctrl_dev *pctldev,
+				     unsigned selector,
+				     unsigned long *configs,
+				     unsigned num_configs){
+	struct msc313_pinctrl *pinctrl = pctldev->driver_data;
+	struct group_desc *group = pinctrl_generic_get_group(pctldev, selector);
+	int i, j, ret;
+	for(i = 0; i < group->num_pins; i++){
+		for(j = 0; j < num_configs; j++){
+			ret = mstar_set_config(pinctrl, group->pins[i], configs[j]);
+			if(ret)
+				return ret;
+		}
+	}
+	return 0;
+}
+
+static const struct pinconf_ops mstar_pinconf_ops = {
+	.is_generic = true,
+	.pin_config_get = mstar_pin_config_get,
+	.pin_config_set = mstar_pin_config_set,
+	.pin_config_group_get = mstar_pin_config_group_get,
+	.pin_config_group_set = mstar_pin_config_group_set,
+};
+
+
+static int msc313_pinctrl_probe(struct platform_device *pdev)
+{
+	int ret;
+	struct msc313_pinctrl *pinctrl;
+	const struct msc313_pinctrl_info *match_data;
+
+	match_data = of_device_get_match_data(&pdev->dev);
+	if (!match_data)
+		return -EINVAL;
+
+	pinctrl = devm_kzalloc(&pdev->dev, sizeof(*pinctrl), GFP_KERNEL);
+	if (!pinctrl)
+		return -ENOMEM;
+
+	platform_set_drvdata(pdev, pinctrl);
+
+	pinctrl->dev = &pdev->dev;
+	pinctrl->info = match_data;
+
+	pinctrl->mux = devm_platform_ioremap_resource(pdev, 0);
+	if (IS_ERR(pinctrl->mux))
+		return PTR_ERR(pinctrl->mux);
+
+	pinctrl->regmap = devm_regmap_init_mmio(pinctrl->dev, pinctrl->mux,
+			&msc313_pinctrl_regmap_config);
+	if (IS_ERR(pinctrl->regmap)) {
+		dev_err(pinctrl->dev, "failed to register regmap");
+		return PTR_ERR(pinctrl->regmap);
+	}
+
+	pinctrl->desc.name = DRIVER_NAME;
+	pinctrl->desc.pctlops = &msc313_pinctrl_ops;
+	pinctrl->desc.pmxops = &mstar_pinmux_ops;
+	pinctrl->desc.confops = &mstar_pinconf_ops;
+	pinctrl->desc.owner = THIS_MODULE;
+	pinctrl->desc.pins = pinctrl->info->pins;
+	pinctrl->desc.npins = pinctrl->info->npins;
+
+	ret = devm_pinctrl_register_and_init(pinctrl->dev, &pinctrl->desc,
+					     pinctrl, &pinctrl->pctl);
+
+	if (ret) {
+		dev_err(pinctrl->dev, "failed to register pinctrl\n");
+		return ret;
+	}
+
+	ret = msc313_pinctrl_parse_functions(pinctrl);
+	ret = msc313_pinctrl_parse_groups(pinctrl);
+
+	ret = pinctrl_enable(pinctrl->pctl);
+	if (ret)
+		dev_err(pinctrl->dev, "failed to enable pinctrl\n");
+
+	return 0;
+}
+
+static const struct of_device_id msc313_pinctrl_of_match[] = {
+#if CONFIG_MACH_INFINITY
+	{
+		.compatible	= "mstar,msc313-pm-pinctrl",
+		.data		= &msc313_info,
+	},
+	{
+		.compatible	= "mstar,msc313e-pm-pinctrl",
+		.data		= &msc313_info,
+	},
+	{
+		.compatible	= "sstar,ssd20xd-pm-pinctrl",
+		.data		= &ssd20xd_info,
+	},
+#endif
+#ifdef CONFIG_MACH_MERCURY
+	{
+		.compatible	= "mstar,ssc8336-pm-pinctrl",
+		.data		= &ssc8336n_info,
+	},
+	{
+		.compatible	= "mstar,ssc8336n-pm-pinctrl",
+		.data		= &ssc8336n_info,
+	},
+#endif
+	{ }
+};
+MODULE_DEVICE_TABLE(of, msc313_pinctrl_of_match);
+
+static struct platform_driver msc313_pinctrl_driver = {
+	.driver = {
+		.name = DRIVER_NAME,
+		.of_match_table = msc313_pinctrl_of_match,
+	},
+	.probe = msc313_pinctrl_probe,
+};
+module_platform_driver(msc313_pinctrl_driver);
+
+MODULE_AUTHOR("Daniel Palmer <daniel@0x0f.com>");
+MODULE_DESCRIPTION("PM Pin controller driver for MStar SoCs");
+MODULE_LICENSE("GPL v2");
