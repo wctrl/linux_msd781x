@@ -14,13 +14,14 @@
 #include <linux/pinctrl/pinctrl.h>
 #include <linux/pinctrl/pinmux.h>
 #include <linux/regmap.h>
-
+#include <linux/mfd/syscon.h>
+#include <soc/mstar/pmsleep.h>
 #include <dt-bindings/pinctrl/mstar.h>
 
-#include "core.h"
-#include "devicetree.h"
-#include "pinconf.h"
-#include "pinmux.h"
+#include "../core.h"
+#include "../devicetree.h"
+#include "../pinconf.h"
+#include "../pinmux.h"
 
 #include "pinctrl-mstar.h"
 
@@ -30,14 +31,9 @@ struct msc313_pinctrl {
 	struct device *dev;
 	struct pinctrl_desc desc;
 	struct pinctrl_dev *pctl;
-	void __iomem *mux;
 	struct regmap *regmap;
 	const struct msc313_pinctrl_info *info;
 };
-
-/* for pins that have the same on the different chips */
-#define COMMON_PIN(_model, _pinname) \
-	PINCTRL_PIN(PIN_##_model##_##_pinname, PINNAME_##_pinname)
 
 struct msc313_pinctrl_function {
 	const char *name;
@@ -95,33 +91,6 @@ struct msc313_pinctrl_pinconf {
 	const int ndrivecurrents;
 };
 
-/* There isn't a register for the function for this pin */
-#define NOREG		-1
-/*
- * If used for pull_en_reg this means there is an always
- * on pull up, if used for pull_dir_reg there is an optional
- * pull up.
- */
-#define ALWAYS_PULLUP	-2
-/* See above but for pull down. */
-#define ALWAYS_PULLDOWN	-3
-
-#define MSTAR_PINCTRL_PIN(_pin, _pull_en_reg, _pull_en_bit, \
-		_pull_dir_reg, _pull_dir_bit, \
-		_drive_reg, _drive_lsb, _drive_width, _drivecurrents) \
-	{ \
-		.pin = _pin, \
-		.pull_en_reg = _pull_en_reg, \
-		.pull_en_bit = _pull_en_bit, \
-		.pull_dir_reg = _pull_dir_reg, \
-		.pull_dir_bit = _pull_dir_bit, \
-		.drive_reg = _drive_reg, \
-		.drive_lsb = _drive_lsb, \
-		.drive_width = _drive_width, \
-		.drivecurrents = _drivecurrents, \
-		.ndrivecurrents = ARRAY_SIZE(_drivecurrents) \
-	}
-
 /*
  * Per-chip info that describes all of the pins,
  * the pin groups, the mappable functions and
@@ -174,28 +143,39 @@ static const struct msc313_pinctrl_pinconf msc313_configurable_pins[] = {
 MSTAR_PINCTRL_INFO(msc313);
 
 /* ssd20xd */
-#define SSD20XD_COMMON_PIN(_pinname) COMMON_PIN(SSD20XD, _pinname)
 
 /* pinctrl pins */
 static const struct pinctrl_pin_desc ssd20xd_pins[] = {
+	SSD20XD_COMMON_PIN(PM_LED0),
+	SSD20XD_COMMON_PIN(PM_LED1),
 };
 
 /* mux pin groupings */
-
-#define SSD20XD_PINCTRL_GROUP(_NAME, _name) \
-	MSTAR_PINCTRL_GROUP(GROUPNAME_##_NAME, ssd20xd_##_name##_pins)
+static const int ssd20xd_pm_led_mode1_pins[] = {
+	PIN_SSD20XD_PM_LED0,
+	PIN_SSD20XD_PM_LED1,
+};
 
 static const struct msc313_pinctrl_group ssd20xd_pinctrl_groups[] = {
+	SSD20XD_PINCTRL_GROUP(PM_LED_MODE1, pm_led_mode1)
 };
 
 /* chip specific functions */
-#define SSD20XD_MODE(_func, _modenum) (_modenum << SHIFT_SSD20XD_##_func)
+#define REG_SSD20XD_PM_LED MSTAR_PMSLEEP_PMLED
+#define SHIFT_SSD20XD_PM_LED 4
+#define WIDTH_SSD20XD_PM_LED 2
+#define MASK_SSD20XD_PM_LED MAKEMASK(SSD20XD_PM_LED)
 
-#define SSD20XD_FUNCTION(_NAME, _name) \
-	MSTAR_PINCTRL_FUNCTION(FUNCTIONNAME_##_NAME, REG_SSD20XD_##_NAME, \
-	MASK_SSD20XD_##_NAME, ssd20xd_##_name##_groups, ssd20xd_##_name##_values)
+static const char * const ssd20xd_pm_led_groups[] = {
+	GROUPNAME_PM_LED_MODE1,
+};
+
+static const u16 ssd20xd_pm_led_values[] = {
+	SSD20XD_MODE(PM_LED, 1),
+};
 
 static const struct msc313_pinctrl_function ssd20xd_pinctrl_functions[] = {
+	SSD20XD_FUNCTION(PM_LED, pm_led),
 };
 
 static const struct msc313_pinctrl_pinconf ssd20xd_configurable_pins[] = {
@@ -339,175 +319,12 @@ static const struct regmap_config msc313_pinctrl_regmap_config = {
 	.reg_stride = 4,
 };
 
-static int mstar_set_config(struct msc313_pinctrl *pinctrl, int pin, unsigned long config){
-	enum pin_config_param param = pinconf_to_config_param(config);
-	u32 arg = pinconf_to_config_argument(config);
-	int i;
-	unsigned int mask;
-	const struct msc313_pinctrl_pinconf *confpin;
-	dev_dbg(pinctrl->dev, "setting %d:%u on pin %d\n", (int)config,(unsigned)arg, pin);
-	for(i = 0; i < pinctrl->info->npinconfs; i++){
-		if(pinctrl->info->pinconfs[i].pin == pin){
-			confpin = &pinctrl->info->pinconfs[i];
-			switch(param){
-			case PIN_CONFIG_BIAS_PULL_UP:
-				if(confpin->pull_en_reg != -1){
-					dev_dbg(pinctrl->dev, "setting pull up %d on pin %d\n", (int) arg, pin);
-					mask = 1 << confpin->pull_en_bit;
-					regmap_update_bits(pinctrl->regmap, confpin->pull_en_reg, mask, arg ? mask : 0);
-				}
-				else
-					dev_info(pinctrl->dev, "pullup reg/bit isn't known for pin %d\n", pin);
-			default:
-				break;
-			}
-			return 0;
-		}
-	}
-	return 0;
-}
-
-/*
- * Check if a pin is one that is always pulled up or down
- * then check if there is an optional pull up or down, then
- * check if that is always up or down, and finally if there
- * is a direction bit check that for the direction.
- */
-static bool msc313_pinctrl_ispulled(struct msc313_pinctrl *pinctrl,
-		const struct msc313_pinctrl_pinconf *confpin, bool down)
-{
-	unsigned val;
-
-	if(confpin->pull_en_reg == ALWAYS_PULLUP)
-		return !down;
-	else if(confpin->pull_en_reg == ALWAYS_PULLDOWN)
-		return down;
-	else if(confpin->pull_en_reg != NOREG){
-		regmap_read(pinctrl->regmap, confpin->pull_en_reg, &val);
-		if(val & BIT(confpin->pull_en_bit)){
-			if (confpin->pull_dir_reg == ALWAYS_PULLUP)
-				return !down;
-			else if (confpin->pull_dir_reg == ALWAYS_PULLDOWN)
-				return down;
-			else if (confpin->pull_en_reg != NOREG){
-				regmap_read(pinctrl->regmap, confpin->pull_dir_reg, &val);
-				if (val & BIT(confpin->pull_dir_bit))
-					return !down;
-				else
-					return down;
-			}
-			else
-				return false;
-		}
-		else
-			return false;
-	}
-	else
-		return false;
-}
-
-static int msc313_pinctrl_get_config(struct msc313_pinctrl *pinctrl, int pin, unsigned long *config){
-	int i;
-	const struct msc313_pinctrl_pinconf *confpin;
-	unsigned val;
-	enum pin_config_param param = pinconf_to_config_param(*config);
-	unsigned crntidx;
-
-	/* we only support a limited range of conf options so filter the
-	 * ones we do here
-	 */
-
-	switch(param){
-		case PIN_CONFIG_BIAS_PULL_UP:
-		case PIN_CONFIG_BIAS_PULL_DOWN:
-		case PIN_CONFIG_DRIVE_STRENGTH:
-			break;
-		default:
-			return -ENOTSUPP;
-	}
-
-	/* try to find the configuration register(s) for the pin */
-	for(i = 0; i < pinctrl->info->npinconfs; i++){
-		if(pinctrl->info->pinconfs[i].pin == pin){
-			confpin = &pinctrl->info->pinconfs[i];
-			switch(param){
-			case PIN_CONFIG_BIAS_PULL_UP:
-				return msc313_pinctrl_ispulled(pinctrl, confpin, false) ? 0 : -EINVAL;
-			case PIN_CONFIG_BIAS_PULL_DOWN:
-				return msc313_pinctrl_ispulled(pinctrl, confpin, true) ? 0 : -EINVAL;
-			case PIN_CONFIG_DRIVE_STRENGTH:
-				if(confpin->drive_reg != -1){
-					regmap_read(pinctrl->regmap, confpin->drive_reg, &val);
-					crntidx = (val >> confpin->drive_lsb) & BIT_MASK(confpin->drive_width);
-					*config = pinconf_to_config_packed(param, confpin->drivecurrents[crntidx]);
-					return 0;
-				}
-				return -ENOTSUPP;
-			default:
-				return -ENOTSUPP;
-			}
-		}
-	}
-
-	return -ENOTSUPP;
-}
-
-static int mstar_pin_config_get(struct pinctrl_dev *pctldev,
-			       unsigned pin,
-			       unsigned long *config){
-	struct msc313_pinctrl *pinctrl = pctldev->driver_data;
-	return msc313_pinctrl_get_config(pinctrl, pin, config);
-}
-
-static int mstar_pin_config_set(struct pinctrl_dev *pctldev,
-			       unsigned pin,
-			       unsigned long *configs,
-			       unsigned num_configs){
-	int i;
-	struct msc313_pinctrl *pinctrl = pctldev->driver_data;
-	for(i = 0; i < num_configs; i++){
-		mstar_set_config(pinctrl, pin, configs[i]);
-	}
-	return 0;
-}
-
-static int mstar_pin_config_group_get(struct pinctrl_dev *pctldev,
-				     unsigned selector,
-				     unsigned long *config){
-	return -ENOTSUPP;
-}
-
-static int mstar_pin_config_group_set(struct pinctrl_dev *pctldev,
-				     unsigned selector,
-				     unsigned long *configs,
-				     unsigned num_configs){
-	struct msc313_pinctrl *pinctrl = pctldev->driver_data;
-	struct group_desc *group = pinctrl_generic_get_group(pctldev, selector);
-	int i, j, ret;
-	for(i = 0; i < group->num_pins; i++){
-		for(j = 0; j < num_configs; j++){
-			ret = mstar_set_config(pinctrl, group->pins[i], configs[j]);
-			if(ret)
-				return ret;
-		}
-	}
-	return 0;
-}
-
-static const struct pinconf_ops mstar_pinconf_ops = {
-	.is_generic = true,
-	.pin_config_get = mstar_pin_config_get,
-	.pin_config_set = mstar_pin_config_set,
-	.pin_config_group_get = mstar_pin_config_group_get,
-	.pin_config_group_set = mstar_pin_config_group_set,
-};
-
-
 static int msc313_pinctrl_probe(struct platform_device *pdev)
 {
-	int ret;
+	struct device *dev = &pdev->dev;
 	struct msc313_pinctrl *pinctrl;
 	const struct msc313_pinctrl_info *match_data;
+	int ret;
 
 	match_data = of_device_get_match_data(&pdev->dev);
 	if (!match_data)
@@ -522,12 +339,7 @@ static int msc313_pinctrl_probe(struct platform_device *pdev)
 	pinctrl->dev = &pdev->dev;
 	pinctrl->info = match_data;
 
-	pinctrl->mux = devm_platform_ioremap_resource(pdev, 0);
-	if (IS_ERR(pinctrl->mux))
-		return PTR_ERR(pinctrl->mux);
-
-	pinctrl->regmap = devm_regmap_init_mmio(pinctrl->dev, pinctrl->mux,
-			&msc313_pinctrl_regmap_config);
+	pinctrl->regmap = syscon_regmap_lookup_by_phandle(dev->of_node, "mstar,pmsleep");
 	if (IS_ERR(pinctrl->regmap)) {
 		dev_err(pinctrl->dev, "failed to register regmap");
 		return PTR_ERR(pinctrl->regmap);
@@ -536,7 +348,6 @@ static int msc313_pinctrl_probe(struct platform_device *pdev)
 	pinctrl->desc.name = DRIVER_NAME;
 	pinctrl->desc.pctlops = &msc313_pinctrl_ops;
 	pinctrl->desc.pmxops = &mstar_pinmux_ops;
-	pinctrl->desc.confops = &mstar_pinconf_ops;
 	pinctrl->desc.owner = THIS_MODULE;
 	pinctrl->desc.pins = pinctrl->info->pins;
 	pinctrl->desc.npins = pinctrl->info->npins;
