@@ -659,7 +659,6 @@ static const struct msc313_pinctrl_group ssd20xd_pinctrl_groups[] = {
 };
 
 /* chip specific functions */
-#define SSD20XD_MODE(_func, _modenum) (_modenum << SHIFT_SSD20XD_##_func)
 
 static const char * const ssd20xd_fuart_groups[] = {
 	GROUPNAME_FUART_MODE1,
