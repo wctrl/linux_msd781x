@@ -507,6 +507,10 @@
 					 <&xtal12_div4>;
 			};
 
+			pinctrl_pm: pinctrl@1c00 {
+				mstar,pmsleep = <&pmsleep>;
+			};
+
 			gpio_pm: gpio_pm@1e00 {
 				reg = <0x1e00 0x200>;
 				#gpio-cells = <2>;
