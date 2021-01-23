@@ -6,6 +6,7 @@
 
 /dts-v1/;
 #include "mstar-infinity2m-ssd201.dtsi"
+#include "mstar-infinity2m-ssd201-som2d01-common.dtsi"
 
 / {
 	model = "SOM2D01 (SSD201)";
@@ -26,21 +27,6 @@
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;
 		regulator-boot-on;
-	};
-};
-
-&pm_uart {
-	status = "okay";
-};
-
-&isp {
-	status = "okay";
-	nand: nand@0 {
-		#address-cells = <1>;
-		#size-cells = <1>;
-		compatible = "spi-nand";
-		reg = <0>;
-		spi-max-frequency = <40000000>;
 	};
 };
 
