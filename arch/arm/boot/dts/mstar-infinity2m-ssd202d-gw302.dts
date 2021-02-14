@@ -39,7 +39,7 @@
 	leds {
 		compatible = "gpio-leds";
 		sys {
-			gpios = <&gpio 46 GPIO_ACTIVE_HIGH>;
+			gpios = <&gpio SSD20XD_GPIO_UART0_RX GPIO_ACTIVE_HIGH>;
 			linux,default-trigger = "heartbeat";
 		};
 	};
