@@ -462,7 +462,7 @@ static int msc313_isp_probe(struct platform_device *pdev)
 	master->setup = msc313_isp_setup;
 	master->transfer_one = msc313_isp_transfer_one;
 	master->set_cs = msc313_isp_set_cs;
-	master->mem_ops = &msc313_isp_mem_ops;
+	//master->mem_ops = &msc313_isp_mem_ops;
 
 	init_waitqueue_head(&isp->dma_wait);
 
