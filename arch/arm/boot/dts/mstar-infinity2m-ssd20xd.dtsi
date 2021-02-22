@@ -6,6 +6,10 @@
 
 #include "mstar-infinity2m.dtsi"
 
+&soc {
+
+};
+
 &smpctrl {
 	compatible = "sstar,ssd201-smpctrl", "mstar,smpctrl";
 	status = "okay";
@@ -37,5 +41,23 @@
 	pm_led_mode1_pins: pm_led_mode1 {
 		function = "pm_led";
 		groups = "pm_led_mode1";
+	};
+};
+
+&riu {
+	emac1: emac@2a2800 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "mstar,msc313-emac";
+		interrupt-parent = <&intc_irq>;
+		interrupts = <GIC_SPI 52 IRQ_TYPE_LEVEL_HIGH>;
+		reg = <0x2a2800 0x800>;
+		clock-names = "pclk", "hclk", "tx_clk", "rx_clk";
+		clocks = <&clkgen_mux_emac 0>,
+			 <&clkgen_mux_emac 0>,
+			 <&sc_gp_ctrl_muxes 5>,
+			 <&sc_gp_ctrl_muxes 1>;
+		local-mac-address = [00 00 00 00 00 00];
+		status = "disabled";
 	};
 };
