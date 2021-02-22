@@ -48,3 +48,7 @@
 		groups = "spi0_do";
 	};
 };
+
+&pinctrl_pm {
+	compatible = "mstar,msc313e-pm-pinctrl";
+};
