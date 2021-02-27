@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2019 Daniel Palmer
+ * Copyright (C) 2019 Daniel Palmer <daniel@thingy.jp>
  */
 
 #include <linux/platform_device.h>
@@ -62,50 +62,48 @@ static unsigned long msc313_pll_gater_recalc_rate(struct clk_hw *hw,
 }
 
 static const struct clk_ops msc313_pll_gater_ops = {
-		.enable = msc313_pll_gater_enable,
-		.disable = msc313_pll_gater_disable,
-		.is_enabled = msc313_pll_gater_is_enabled,
-		.recalc_rate = msc313_pll_gater_recalc_rate,
+	.enable = msc313_pll_gater_enable,
+	.disable = msc313_pll_gater_disable,
+	.is_enabled = msc313_pll_gater_is_enabled,
+	.recalc_rate = msc313_pll_gater_recalc_rate,
 };
 
 static const struct regmap_config msc313_pll_regmap_config = {
-                .reg_bits = 16,
-                .val_bits = 16,
-                .reg_stride = 4,
+	.reg_bits = 16,
+	.val_bits = 16,
+	.reg_stride = 4,
+};
+
+static const struct clk_parent_data parents[] = {
+	{ .index = 0 },
+	{ .index = 1 },
+	{ .index = 2 },
+	{ .index = 3 },
+	{ .index = 4 },
+	{ .index = 5 },
+	{ .index = 6 },
+	{ .index = 7 },
+	{ .index = 8 },
+	{ .index = 9 },
+	{ .index = 10 },
+	{ .index = 11 },
+	{ .index = 12 },
+	{ .index = 13 },
+	{ .index = 14 },
+	{ .index = 15 },
 };
 
 static int msc313_pll_gater_probe(struct platform_device *pdev)
 {
-	struct msc313_pll_gate* pll_gate;
-	struct clk_init_data *clk_init;
-	struct clk* clk;
-	void __iomem *base;
-	int numparents, numoutputs, pllindex;
+	struct clk_init_data clk_init = { };
 	struct clk_onecell_data *clk_data;
-	const char *parents[16];
+	struct msc313_pll_gate* pll_gate;
+	struct device *dev = &pdev->dev;
 	struct regmap* regmap;
-
-	numparents = of_clk_parent_fill(pdev->dev.of_node, parents, 16);
-	if(!numparents){
-		dev_err(&pdev->dev, "no parents\n");
-		return -ENODEV;
-	}
-
-	if(numparents != of_clk_get_parent_count(pdev->dev.of_node)){
-		dev_info(&pdev->dev, "waiting for parents\n");
-		return -EPROBE_DEFER;
-	}
-
-	numoutputs = of_property_count_strings(pdev->dev.of_node, "clock-output-names");
-	if(!numoutputs){
-		dev_info(&pdev->dev, "output names need to be specified");
-		return -ENODEV;
-	}
-
-	if(numoutputs > MAX_OUTPUTS){
-		dev_info(&pdev->dev, "too many output names");
-		return -EINVAL;
-	}
+	void __iomem *base;
+	struct clk* clk;
+	int pllindex;
+	int numoutputs = ARRAY_SIZE(parents);
 
 	base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(base))
@@ -124,11 +122,11 @@ static int msc313_pll_gater_probe(struct platform_device *pdev)
 	// lock the force off bits
 	regmap_write(regmap, REG_LOCK, REG_LOCK_OFF);
 
-	clk_data = devm_kzalloc(&pdev->dev, sizeof(struct clk_onecell_data), GFP_KERNEL);
+	clk_data = devm_kzalloc(dev, sizeof(struct clk_onecell_data), GFP_KERNEL);
 	if (!clk_data)
 		return -ENOMEM;
 	clk_data->clk_num = numoutputs;
-	clk_data->clks = devm_kcalloc(&pdev->dev, numoutputs, sizeof(struct clk *), GFP_KERNEL);
+	clk_data->clks = devm_kcalloc(dev, numoutputs, sizeof(struct clk *), GFP_KERNEL);
 	if (!clk_data->clks)
 		return -ENOMEM;
 
@@ -136,21 +134,17 @@ static int msc313_pll_gater_probe(struct platform_device *pdev)
 	if (!pll_gate)
 		return -ENOMEM;
 
-	clk_init = devm_kcalloc(&pdev->dev, numoutputs, sizeof(*clk_init), GFP_KERNEL);
-	if (!clk_init)
-		return -ENOMEM;
+	clk_init.ops = &msc313_pll_gater_ops;
+	clk_init.num_parents = 1;
 
-	for (pllindex = 0; pllindex < numoutputs; pllindex++, pll_gate++, clk_init++) {
+	for (pllindex = 0; pllindex < numoutputs; pllindex++, pll_gate++) {
 		pll_gate->regmap = regmap;
 		pll_gate->mask = 1 << pllindex;
-		pll_gate->clk_hw.init = clk_init;
+		pll_gate->clk_hw.init = &clk_init;
 
 		of_property_read_string_index(pdev->dev.of_node,
-				"clock-output-names", pllindex, &clk_init->name);
-		clk_init->ops = &msc313_pll_gater_ops;
-
-		clk_init->num_parents = 1;
-		clk_init->parent_names = parents + pllindex;
+				"clock-output-names", pllindex, &clk_init.name);
+		clk_init.parent_data = &parents[pllindex];
 
 		clk = devm_clk_register(&pdev->dev, &pll_gate->clk_hw);
 		if (IS_ERR(clk)) {
@@ -163,16 +157,10 @@ static int msc313_pll_gater_probe(struct platform_device *pdev)
 	return of_clk_add_provider(pdev->dev.of_node, of_clk_src_onecell_get, clk_data);
 }
 
-static int msc313_pll_gater_remove(struct platform_device *pdev)
-{
-	return 0;
-}
-
 static const struct of_device_id msc313_pll_gater_of_match[] = {
 	{ .compatible = "mstar,msc313-pll-gater", },
 	{}
 };
-MODULE_DEVICE_TABLE(of, msc313_pll_gater_of_match);
 
 static struct platform_driver msc313_pll_gater_driver = {
 	.driver = {
@@ -180,6 +168,5 @@ static struct platform_driver msc313_pll_gater_driver = {
 		.of_match_table = msc313_pll_gater_of_match,
 	},
 	.probe = msc313_pll_gater_probe,
-	.remove = msc313_pll_gater_remove,
 };
 builtin_platform_driver(msc313_pll_gater_driver);
