@@ -53,7 +53,6 @@ static const struct of_device_id msc313e_clkgen_mux_of_match[] = {
 	},
 	{}
 };
-MODULE_DEVICE_TABLE(of, msc313e_clkgen_mux_of_match);
 
 static int mstar_clkgen_mux_mux_set_parent(struct clk_hw *hw, u8 index)
 {
@@ -361,8 +360,4 @@ static struct platform_driver msc313e_clkgen_mux_driver = {
 	.probe = msc313e_clkgen_mux_probe,
 	.remove = msc313e_clkgen_mux_remove,
 };
-module_platform_driver(msc313e_clkgen_mux_driver);
-
-MODULE_LICENSE("GPL v2");
-MODULE_AUTHOR("Daniel Palmer <daniel@0x0f.com>");
-MODULE_DESCRIPTION("MStar MSC313e clkgen mux driver");
+builtin_platform_driver(msc313e_clkgen_mux_driver);
