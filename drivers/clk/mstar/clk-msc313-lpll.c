@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * MStar MSC313 MPLL driver
+ * MStar MSC313 LPLL driver
  *
  * Copyright (C) 2019 Daniel Palmer <daniel@thingy.jp>
  */
@@ -126,11 +126,6 @@ static int msc313_lpll_probe(struct platform_device *pdev)
 			lpll->clk_data);
 }
 
-static int msc313_lpll_remove(struct platform_device *pdev)
-{
-	return 0;
-}
-
 static const struct of_device_id msc313_lpll_of_match[] = {
 	{
 		.compatible = "mstar,msc313-lpll",
@@ -144,6 +139,5 @@ static struct platform_driver msc313_lpll_driver = {
 		.of_match_table = msc313_lpll_of_match,
 	},
 	.probe = msc313_lpll_probe,
-	.remove = msc313_lpll_remove,
 };
 builtin_platform_driver(msc313_lpll_driver);
