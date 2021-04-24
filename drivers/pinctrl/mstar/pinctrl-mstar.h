@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (C) 2019 Daniel Palmer
  */
@@ -48,11 +48,11 @@
 #define REG_PWM4	REG_PWMS
 #define MASK_PWM4	(BIT(9) | BIT(8))
 #define REG_PWM5	REG_PWMS
-#define MASK_PWM5	(BIT(11)| BIT(10))
+#define MASK_PWM5	(BIT(11) | BIT(10))
 #define REG_PWM6	REG_PWMS
-#define MASK_PWM6	(BIT(13)| BIT(11))
+#define MASK_PWM6	(BIT(13) | BIT(11))
 #define REG_PWM7	REG_PWMS
-#define MASK_PWM7	(BIT(15)| BIT(14))
+#define MASK_PWM7	(BIT(15) | BIT(14))
 
 #define REG_SDIO	REG_SDIO_NAND
 #define MASK_SDIO	BIT(8)
@@ -68,7 +68,7 @@
 #define MASK_SPI1	(BIT(5) | BIT(4))
 
 #define REG_JTAG	REG_ETH_JTAG
-#define MASK_JTAG	BIT(1) | BIT(0)
+#define MASK_JTAG	(BIT(1) | BIT(0))
 
 #define REG_ETH		REG_ETH_JTAG
 #define MASK_ETH	BIT(2)
