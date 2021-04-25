@@ -123,8 +123,8 @@ static unsigned long msc313_cpupll_recalc_rate(struct clk_hw *hw, unsigned long 
 }
 
 static long msc313_cpupll_round_rate(struct clk_hw *hw,
-			    unsigned long rate,
-			    unsigned long *parent_rate)
+				     unsigned long rate,
+				     unsigned long *parent_rate)
 {
 	u32 reg = msc313_cpupll_regforfrequecy(rate, *parent_rate);
 	long rounded = msc313_cpupll_frequencyforreg(reg, *parent_rate);
@@ -140,8 +140,8 @@ static long msc313_cpupll_round_rate(struct clk_hw *hw,
 }
 
 static int msc313_cpupll_set_rate(struct clk_hw *hw,
-			 unsigned long rate,
-			 unsigned long parent_rate)
+				  unsigned long rate,
+				  unsigned long parent_rate)
 {
 	struct msc313_cpupll *cpupll = to_cpupll(hw);
 	u32 reg = msc313_cpupll_regforfrequecy(rate, parent_rate);
@@ -185,7 +185,7 @@ static int msc313_cpupll_probe(struct platform_device *pdev)
 
 	/* LPF might not contain the current frequency so fix that up */
 	riu_writel_relaxed_abs(cpupll->base + REG_LPF_LOW_L,
-			riu_readl_relaxed_abs(cpupll->base + REG_CURRENT));
+			       riu_readl_relaxed_abs(cpupll->base + REG_CURRENT));
 
 	clk_init.name = dev_name(dev);
 	clk_init.ops = &msc313_cpupll_ops;
