@@ -441,7 +441,7 @@ config PINCTRL_EQUILIBRIUM
 	  pinconf settings are retrieved from device tree.
 
 config PINCTRL_MSTAR
-        bool 
+        bool "Pinctrl driver for the Mstar MSC313"
         depends on OF && ARCH_MSTARV7
         select REGMAP_MMIO
 	select GENERIC_PINCTRL_GROUPS
