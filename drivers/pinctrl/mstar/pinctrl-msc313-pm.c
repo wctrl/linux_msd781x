@@ -27,10 +27,10 @@
 
 #define DRIVER_NAME "pinctrl-msc313-pm"
 
-#define GROUPNAME_PM_UART		"pm_uart"
-#define GROUPNAME_PM_SPI		"pm_spi"
-#define GROUPNAME_PM_LED_MODE1		"pm_led_mode1"
-#define GROUPNAME_PM_IRIN		"pm_irin"
+#define GROUPNAME_PM_UART	"pm_uart"
+#define GROUPNAME_PM_SPI	"pm_spi"
+#define GROUPNAME_PM_LED_MODE1	"pm_led_mode1"
+#define GROUPNAME_PM_IRIN	"pm_irin"
 
 #define FUNCTIONNAME_PM_UART	GROUPNAME_PM_UART
 #define FUNCTIONNAME_PM_SPI	GROUPNAME_PM_SPI
