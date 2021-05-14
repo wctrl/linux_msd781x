@@ -27,16 +27,26 @@
 
 #define DRIVER_NAME "pinctrl-msc313-pm"
 
+#define GROUPNAME_PM_UART		"pm_uart"
+#define GROUPNAME_PM_SPI		"pm_spi"
+#define GROUPNAME_PM_LED_MODE1		"pm_led_mode1"
+#define GROUPNAME_PM_IRIN		"pm_irin"
+
+#define FUNCTIONNAME_PM_UART	GROUPNAME_PM_UART
+#define FUNCTIONNAME_PM_SPI	GROUPNAME_PM_SPI
+#define FUNCTIONNAME_PM_LED	"pm_led"
+#define FUNCTIONNAME_PM_IRIN	GROUPNAME_PM_IRIN
+
 static const char * const pm_uart_groups[] = {
-		GROUPNAME_PM_UART,
+	GROUPNAME_PM_UART,
 };
 
 static const char * const pm_spi_groups[] = {
-		GROUPNAME_PM_SPI,
+	GROUPNAME_PM_SPI,
 };
 
 static const char * const pm_irin_groups[] = {
-		GROUPNAME_PM_IRIN,
+	GROUPNAME_PM_IRIN,
 };
 
 /* Functions that all chips have */
