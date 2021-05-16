@@ -372,6 +372,15 @@ config PWM_MESON
 	  To compile this driver as a module, choose M here: the module
 	  will be called pwm-meson.
 
+config PWM_MSC313E
+	tristate "MStar MSC313e PWM support"
+	depends on ARCH_MSTARV7 || COMPILE_TEST
+	help
+	  Generic PWM framework driver for MSTAR MSC313e.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called pwm-msc313e.
+
 config PWM_MTK_DISP
 	tristate "MediaTek display PWM driver"
 	depends on ARCH_MEDIATEK || COMPILE_TEST
@@ -660,6 +669,7 @@ config PWM_VT8500
 
 	  To compile this driver as a module, choose M here: the module
 	  will be called pwm-vt8500.
+
 
 config PWM_XILINX
 	tristate "Xilinx AXI Timer PWM support"
