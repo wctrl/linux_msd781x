@@ -92,7 +92,7 @@
 			 <&clkgen_special_emac_tx 0>,
 			 <&clkgen_special_emac_rx 0>;
 		pinctrl-names = "default";
-		pinctrl-0 = <&emac_pins>;
+		pinctrl-0 = <&emac_mode1_pins>;
 		local-mac-address = [00 00 00 00 00 00];
 		status = "disabled";
 		interconnects = <&miu 0>;
