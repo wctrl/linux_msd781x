@@ -11,4 +11,5 @@ obj-$(CONFIG_MSTAR_MSC313_MIUPLL) += clk-msc313-miupll.o
 obj-y += clk-msc313-pll-gater.o \
 	 clk-mstar-mux.o \
 	 clk-mstar_clkgen-gates.o \
-	 clk-mstar-pll_common.o
+	 clk-mstar-pll_common.o \
+	 clk-msc313-mux.o
