@@ -128,6 +128,10 @@
 					function = "eth";
 					groups = "eth_mode1";
 				};
+				eth1_mode4_pins: eth1_mode4 {
+					function = "eth1";
+					groups = "eth1_mode4";
+				};
 				fuart_pins: fuart {
 					function = "fuart";
 					groups = "fuart";
