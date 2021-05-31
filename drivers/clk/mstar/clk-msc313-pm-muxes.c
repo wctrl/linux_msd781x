@@ -10,20 +10,29 @@
 
 #include "clk-msc313-mux.h"
 
+static const struct msc313_mux_data msc313_muxes[] = {
+};
+
+static const struct msc313_muxes_data msc313_data = MSC313_MUXES_DATA(msc313_muxes);
+
 static const struct msc313_mux_data ssd20xd_muxes[] = {
 };
 
 static const struct msc313_muxes_data ssd20xd_data = MSC313_MUXES_DATA(ssd20xd_muxes);
 
-static const struct of_device_id msc313_pm_clk_ids[] = {
+static const struct of_device_id msc313_pm_muxes_ids[] = {
 	{
-		.compatible = "sstar,ssd20xd-pm-clk",
+		.compatible = "mstar,msc313-pm-muxes",
+		.data = &msc313_data,
+	},
+	{
+		.compatible = "sstar,ssd20xd-pm-muxes",
 		.data = &ssd20xd_data,
 	},
 	{}
 };
 
-static int msc313_pm_clk_probe(struct platform_device *pdev)
+static int msc313_pm_muxes_probe(struct platform_device *pdev)
 {
 	const struct msc313_muxes_data *match_data;
 	struct device *dev = &pdev->dev;
@@ -40,11 +49,11 @@ static int msc313_pm_clk_probe(struct platform_device *pdev)
 	return msc313_mux_register_muxes(dev, regmap, match_data);
 }
 
-static struct platform_driver msc313_pm_clk_driver = {
+static struct platform_driver msc313_pm_muxes_driver = {
 	.driver = {
-		.name = "msc313-clk-pm",
-		.of_match_table = msc313_pm_clk_ids,
+		.name = "msc313-pm-muxes",
+		.of_match_table = msc313_pm_muxes_ids,
 	},
-	.probe = msc313_pm_clk_probe,
+	.probe = msc313_pm_muxes_probe,
 };
-builtin_platform_driver(msc313_pm_clk_driver);
+builtin_platform_driver(msc313_pm_muxes_driver);
