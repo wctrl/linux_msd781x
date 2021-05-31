@@ -10,7 +10,19 @@
 
 #include "clk-msc313-mux.h"
 
+static const struct clk_parent_data ir_parents[] = {
+	{ .fw_name = "xtal12" },
+	{ .fw_name = "rtc_xtal" },
+	{ .fw_name = "xtal12_div8" },
+	{ .fw_name = "xtal12_div12" },
+	{ .fw_name = "rtc32k_div4" },
+	{ .fw_name = "xtal12_div16" },
+	{ .fw_name = "xtal12_div2" },
+	{ .fw_name = "xtal12_div4" },
+};
+
 static const struct msc313_mux_data msc313_muxes[] = {
+	MSC313_MUX_DATA("ir", ir_parents, 0x84, 5, 7, 3, -1)
 };
 
 static const struct msc313_muxes_data msc313_data = MSC313_MUXES_DATA(msc313_muxes);
