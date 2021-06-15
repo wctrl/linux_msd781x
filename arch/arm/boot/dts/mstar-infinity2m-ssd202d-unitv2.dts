@@ -128,5 +128,7 @@
 };
 
 &sdio {
+	vmmc-supply = <&vcc_io>;
+	vqmmc-supply = <&vcc_io>;
 	status = "okay";
 };
