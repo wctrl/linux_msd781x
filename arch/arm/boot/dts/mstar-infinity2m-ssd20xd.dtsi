@@ -11,6 +11,11 @@
 	status = "okay";
 };
 
+&gpio {
+	compatible = "sstar,ssd20xd-gpio";
+	status = "okay";
+};
+
 &pinctrl {
 	compatible = "sstar,ssd20xd-pinctrl";
 	ttl_mode1_pins: ttl_mode1 {
