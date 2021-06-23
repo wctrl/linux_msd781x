@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Copyright (c) 2021 thingy.jp.
+ * Author: Daniel Palmer <daniel@thingy.jp>
+ */
+
+/dts-v1/;
+#include "mstar-infinity2m-ssd202d-som2d01.dts"
+
+/ {
+	model = "SBC2D06 (SSD202D)";
+	compatible = "ido,sbc2d06", "mstar,infinity2m";
+
+	aliases {
+		console = &pm_uart;
+	};
+
+	leds {
+		compatible = "gpio-leds";
+		sys_led {
+			gpios = <&gpio SSD20XD_GPIO_GPIO85 GPIO_ACTIVE_LOW>;
+			linux,default-trigger = "activity";
+		};
+	};
+
+	vcc_vbus: regulator@2 {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc_vbus";
+		regulator-type = "voltage";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpios = <&gpio SSD20XD_GPIO_GPIO14 0>;
+		enable-active-high;
+	};
+
+	vcc_sd: regulator@3 {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc_sd";
+		regulator-type = "voltage";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpios = <&gpio SSD20XD_GPIO_GPIO90 0>;
+	};
+};
