@@ -84,7 +84,7 @@ static int mstar_drv_bind(struct device *dev)
 	drm->irq_enabled = true;
 
 	/* Remove early framebuffers (ie. simplefb) */
-	drm_fb_helper_remove_conflicting_framebuffers(NULL, "sun4i-drm-fb", false);
+	remove_conflicting_framebuffers(NULL, "xx", false);
 
 	mstar_framebuffer_init(drm);
 
