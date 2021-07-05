@@ -1,3 +1,4 @@
+#include <linux/component.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
@@ -6,11 +7,6 @@
 #define DRIVER_NAME "mstar-mop"
 
 #define ADDR_SHIFT	4
-
-#define WINDOWS_NUM	16
-#define	WINDOWS_START	0x200
-#define	WINDOW_LEN	0x40
-
 
 struct mstar_mop_window {
 	struct regmap_field *en;
@@ -31,7 +27,13 @@ struct mstar_mop {
 	struct regmap_field *swrst;
 	struct regmap_field *gw_hsize;
 	struct regmap_field *gw_vsize;
-	struct mstar_mop_window windows[WINDOWS_NUM];
+	struct mstar_mop_window windows[];
+};
+
+struct mstar_mop_data {
+	unsigned int num_windows;
+	unsigned int windows_start;
+	unsigned int window_len;
 };
 
 struct reg_field swrst_field = REG_FIELD(0x0, 0, 0);
@@ -95,8 +97,26 @@ static void mstar_mop_dump_window(struct device *dev, struct mstar_mop_window *w
 		      scaleh, scalev);
 }
 
+static int mstar_mop_bind(struct device *dev, struct device *master,
+			 void *data)
+{
+	printk("bind mop\n");
+	return 0;
+}
+
+static void mstar_mop_unbind(struct device *dev, struct device *master,
+			    void *data)
+{
+}
+
+static const struct component_ops mstar_mop_component_ops = {
+	.bind	= mstar_mop_bind,
+	.unbind	= mstar_mop_unbind,
+};
+
 static int mstar_mop_probe(struct platform_device *pdev)
 {
+	const struct mstar_mop_data *match_data;
 	struct device *dev = &pdev->dev;
 	unsigned int hsize, vsize;
 	struct mstar_mop *mop;
@@ -104,8 +124,11 @@ static int mstar_mop_probe(struct platform_device *pdev)
 	void __iomem *base;
 	int i;
 
+	match_data = of_device_get_match_data(dev);
+	if (!match_data)
+		return -EINVAL;
 
-	mop = devm_kzalloc(dev, sizeof(*mop), GFP_KERNEL);
+	mop = devm_kzalloc(dev, struct_size(mop, windows, match_data->num_windows), GFP_KERNEL);
 	if (!mop)
 		return -ENOMEM;
 
@@ -128,8 +151,8 @@ static int mstar_mop_probe(struct platform_device *pdev)
 		      hsize, vsize
 		);
 
-	for (i = 0; i < ARRAY_SIZE(mop->windows); i++){
-		unsigned int offset = WINDOWS_START + (WINDOW_LEN * i);
+	for (i = 0; i < match_data->num_windows; i++){
+		unsigned int offset = match_data->windows_start + (match_data->window_len * i);
 		struct reg_field en_field = REG_FIELD(offset + 0, 0, 0);
 		struct reg_field yaddrl_field = REG_FIELD(offset + 0x8, 0, 15);
 		struct reg_field yaddrh_field = REG_FIELD(offset + 0xc, 0, 11);
@@ -161,19 +184,39 @@ static int mstar_mop_probe(struct platform_device *pdev)
 		window->scale_h = devm_regmap_field_alloc(dev, regmap, scaleh_field);
 		window->scale_v = devm_regmap_field_alloc(dev, regmap, scalev_field);
 
-		mstar_mop_dump_window(dev, window);
+		//mstar_mop_dump_window(dev, window);
 	}
 
-	return 0;
+	return component_add(&pdev->dev, &mstar_mop_component_ops);
 }
 
 static int mstar_mop_remove(struct platform_device *pdev)
 {
+	component_del(&pdev->dev, &mstar_mop_component_ops);
 	return 0;
 }
 
+static const struct mstar_mop_data ssd20xd_mopg_data = {
+	.num_windows = 16,
+	.windows_start = 0x200,
+	.window_len = 0x40,
+};
+
+static const struct mstar_mop_data ssd20xd_mops_data = {
+	.num_windows = 1,
+	.windows_start = 0x20,
+	.window_len = 0x40,
+};
+
 static const struct of_device_id mstar_mop_ids[] = {
-	{ .compatible = "sstar,ssd20xd-mop" },
+	{
+		.compatible = "sstar,ssd20xd-mopg",
+		.data = &ssd20xd_mopg_data,
+	},
+	{
+		.compatible = "sstar,ssd20xd-mops",
+		.data = &ssd20xd_mops_data,
+	},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mstar_mop_ids);
