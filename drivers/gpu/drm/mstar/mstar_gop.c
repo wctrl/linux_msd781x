@@ -131,7 +131,7 @@ static int mstar_gop_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id mstar_gop_dt_ids[] = {
-	{ .compatible = "mstar,gop" },
+	{ .compatible = "sstar,ssd20xd-gop" },
 	{},
 };
 MODULE_DEVICE_TABLE(of, mstar_gop_dt_ids);
