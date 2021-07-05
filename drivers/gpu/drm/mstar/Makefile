@@ -4,4 +4,4 @@ obj-$(CONFIG_DRM_MSTAR)		+= mstar_drv.o \
 				   mstar_mop.o \
 				   mstar_pnl.o \
 				   mstar_framebuffer.o \
-				   mstar_dphy.o
+				   mstar_dsi.o
