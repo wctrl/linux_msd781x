@@ -33,8 +33,6 @@
 /* bank 0 */
 
 #define MSTAR_GOP_BANK_0		0x0
-#define MSTAR_GOP_REG_CONFIG		(MSTAR_GOP_BANK_0 + 0x00)
-#define MSTAR_GOP_REG_CONFIG_RST	BIT(0)
 #define MSTAR_GOP_REG_DST_RI		(MSTAR_GOP_BANK_0 + 0x04)
 #define MSTAR_GOP_REG_BLINK		(MSTAR_GOP_BANK_0 + 0x08)
 #define MSTAR_GOP_REG_PSRAM_WD		(MSTAR_GOP_BANK_0 + 0x0c) // 32 bit
@@ -42,8 +40,6 @@
 #define MSTAR_GOP_REG_REGDMA_START_END	(MSTAR_GOP_BANK_0 + 0x18) // 32 bit
 #define MSTAR_GOP_REG_INT_MASK		(MSTAR_GOP_BANK_0 + 0x20)
 #define MSTAR_GOP_REG_STATUS		(MSTAR_GOP_BANK_0 + 0x24)
-
-static struct reg_field gop_dst_field = REG_FIELD(MSTAR_GOP_REG_DST_RI, 0, 2);
 
 /* bank 1 */
 

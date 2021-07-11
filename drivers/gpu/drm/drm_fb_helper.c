@@ -1665,6 +1665,7 @@ static int drm_fb_helper_single_fb_probe(struct drm_fb_helper *fb_helper,
 	sizes.surface_height /= 100;
 
 	/* push down into drivers */
+	printk("%s:%d %px\n", __func__, __LINE__, fb_helper->funcs->fb_probe);
 	ret = (*fb_helper->funcs->fb_probe)(fb_helper, &sizes);
 	if (ret < 0)
 		return ret;
@@ -1759,8 +1760,11 @@ static void drm_setup_crtcs_fb(struct drm_fb_helper *fb_helper)
 	struct drm_connector *connector;
 	struct drm_mode_set *modeset;
 
+	printk("%s %d\n", __func__, __LINE__);
+
 	mutex_lock(&client->modeset_mutex);
 	drm_client_for_each_modeset(modeset, client) {
+		printk("%s %d\n", __func__, __LINE__);
 		if (!modeset->num_connectors)
 			continue;
 
@@ -1773,19 +1777,20 @@ static void drm_setup_crtcs_fb(struct drm_fb_helper *fb_helper)
 			sw_rotations |= rotation;
 	}
 	mutex_unlock(&client->modeset_mutex);
-
+	printk("%s:%d\n", __func__, __LINE__);
 	drm_connector_list_iter_begin(fb_helper->dev, &conn_iter);
 	drm_client_for_each_connector_iter(connector, &conn_iter) {
-
+		printk("%s %d\n", __func__, __LINE__);
 		/* use first connected connector for the physical dimensions */
 		if (connector->status == connector_status_connected) {
+			printk("%s:%d %s\n", __func__, __LINE__, connector->name);
 			info->var.width = connector->display_info.width_mm;
 			info->var.height = connector->display_info.height_mm;
 			break;
 		}
 	}
 	drm_connector_list_iter_end(&conn_iter);
-
+	printk("%s:%d\n", __func__, __LINE__);
 	switch (sw_rotations) {
 	case DRM_MODE_ROTATE_0:
 		info->fbcon_rotate_hint = FB_ROTATE_UR;
@@ -1807,6 +1812,7 @@ static void drm_setup_crtcs_fb(struct drm_fb_helper *fb_helper)
 		 */
 		info->fbcon_rotate_hint = FB_ROTATE_UR;
 	}
+	printk("%s:%d\n", __func__, __LINE__);
 }
 
 /* Note: Drops fb_helper->lock before returning. */
@@ -1819,12 +1825,20 @@ __drm_fb_helper_initial_config_and_unlock(struct drm_fb_helper *fb_helper,
 	unsigned int width, height;
 	int ret;
 
+	printk("%s:%d\n", __func__, __LINE__);
+
 	width = dev->mode_config.max_width;
 	height = dev->mode_config.max_height;
 
+	printk("%s:%d\n", __func__, __LINE__);
+
 	drm_client_modeset_probe(&fb_helper->client, width, height);
+
+	printk("%s:%d\n", __func__, __LINE__);
+
 	ret = drm_fb_helper_single_fb_probe(fb_helper, bpp_sel);
 	if (ret < 0) {
+		printk("%s:%d\n", __func__, __LINE__);
 		if (ret == -EAGAIN) {
 			fb_helper->preferred_bpp = bpp_sel;
 			fb_helper->deferred_setup = true;
@@ -1835,6 +1849,8 @@ __drm_fb_helper_initial_config_and_unlock(struct drm_fb_helper *fb_helper,
 		return ret;
 	}
 	drm_setup_crtcs_fb(fb_helper);
+
+	printk("%s:%d\n", __func__, __LINE__);
 
 	fb_helper->deferred_setup = false;
 
@@ -1852,17 +1868,19 @@ __drm_fb_helper_initial_config_and_unlock(struct drm_fb_helper *fb_helper,
 	 * register the fbdev emulation instance in kernel_fb_helper_list. */
 	mutex_unlock(&fb_helper->lock);
 
+	printk("%s:%d\n", __func__, __LINE__);
+
 	ret = register_framebuffer(info);
 	if (ret < 0)
 		return ret;
-
+	printk("%s:%d\n", __func__, __LINE__);
 	drm_info(dev, "fb%d: %s frame buffer device\n",
 		 info->node, info->fix.id);
 
 	mutex_lock(&kernel_fb_helper_lock);
 	if (list_empty(&kernel_fb_helper_list))
 		register_sysrq_key('v', &sysrq_drm_fb_helper_restore_op);
-
+	printk("%s:%d\n", __func__, __LINE__);
 	list_add(&fb_helper->kernel_fb_list, &kernel_fb_helper_list);
 	mutex_unlock(&kernel_fb_helper_lock);
 
@@ -2313,7 +2331,7 @@ static int drm_fb_helper_generic_probe(struct drm_fb_helper *fb_helper,
 	struct dma_buf_map map;
 	int ret;
 
-	drm_dbg_kms(dev, "surface width(%d), height(%d) and bpp(%d)\n",
+	printk("surface width(%d), height(%d) and bpp(%d)\n",
 		    sizes->surface_width, sizes->surface_height,
 		    sizes->surface_bpp);
 
@@ -2399,31 +2417,36 @@ static int drm_fbdev_client_hotplug(struct drm_client_dev *client)
 	struct drm_device *dev = client->dev;
 	int ret;
 
+	printk("%s:%d\n", __func__, __LINE__);
 	/* Setup is not retried if it has failed */
 	if (!fb_helper->dev && fb_helper->funcs)
 		return 0;
 
+	printk("%s:%d\n", __func__, __LINE__);
 	if (dev->fb_helper)
 		return drm_fb_helper_hotplug_event(dev->fb_helper);
 
+	printk("%s:%d\n", __func__, __LINE__);
 	if (!dev->mode_config.num_connector) {
 		drm_dbg_kms(dev, "No connectors found, will not create framebuffer!\n");
 		return 0;
 	}
 
+	printk("%s:%d\n", __func__, __LINE__);
 	drm_fb_helper_prepare(dev, fb_helper, &drm_fb_helper_generic_funcs);
 
 	ret = drm_fb_helper_init(dev, fb_helper);
 	if (ret)
 		goto err;
 
+	printk("%s:%d\n", __func__, __LINE__);
 	if (!drm_drv_uses_atomic_modeset(dev))
 		drm_helper_disable_unused_functions(dev);
 
 	ret = drm_fb_helper_initial_config(fb_helper, fb_helper->preferred_bpp);
 	if (ret)
 		goto err_cleanup;
-
+	printk("%s:%d\n", __func__, __LINE__);
 	return 0;
 
 err_cleanup:
@@ -2477,18 +2500,21 @@ void drm_fbdev_generic_setup(struct drm_device *dev,
 	struct drm_fb_helper *fb_helper;
 	int ret;
 
+	printk("%s:%d\n", __func__, __LINE__);
 	drm_WARN(dev, !dev->registered, "Device has not been registered.\n");
 	drm_WARN(dev, dev->fb_helper, "fb_helper is already set!\n");
 
 	if (!drm_fbdev_emulation)
 		return;
 
+	printk("%s:%d\n", __func__, __LINE__);
 	fb_helper = kzalloc(sizeof(*fb_helper), GFP_KERNEL);
 	if (!fb_helper) {
 		drm_err(dev, "Failed to allocate fb_helper\n");
 		return;
 	}
 
+	printk("%s:%d\n", __func__, __LINE__);
 	ret = drm_client_init(dev, &fb_helper->client, "fbdev", &drm_fbdev_client_funcs);
 	if (ret) {
 		kfree(fb_helper);
@@ -2496,6 +2522,7 @@ void drm_fbdev_generic_setup(struct drm_device *dev,
 		return;
 	}
 
+	printk("%s:%d\n", __func__, __LINE__);
 	/*
 	 * FIXME: This mixes up depth with bpp, which results in a glorious
 	 * mess, resulting in some drivers picking wrong fbdev defaults and
@@ -2506,11 +2533,11 @@ void drm_fbdev_generic_setup(struct drm_device *dev,
 	if (!preferred_bpp)
 		preferred_bpp = 32;
 	fb_helper->preferred_bpp = preferred_bpp;
-
+	printk("%s:%d\n", __func__, __LINE__);
 	ret = drm_fbdev_client_hotplug(&fb_helper->client);
 	if (ret)
 		drm_dbg_kms(dev, "client hotplug ret=%d\n", ret);
-
+	printk("%s:%d\n", __func__, __LINE__);
 	drm_client_register(&fb_helper->client);
 }
 EXPORT_SYMBOL(drm_fbdev_generic_setup);

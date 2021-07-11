@@ -775,6 +775,8 @@ int drm_client_modeset_probe(struct drm_client_dev *client, unsigned int width, 
 	int i, ret = 0;
 	bool *enabled;
 
+	printk("yo yo yo!\n");
+
 	DRM_DEBUG_KMS("\n");
 
 	if (!width)
@@ -851,7 +853,7 @@ int drm_client_modeset_probe(struct drm_client_dev *client, unsigned int width, 
 			struct drm_mode_set *modeset = drm_client_find_modeset(client, crtc);
 			struct drm_connector *connector = connectors[i];
 
-			DRM_DEBUG_KMS("desired mode %s set on crtc %d (%d,%d)\n",
+			printk("desired mode %s set on crtc %d (%d,%d)\n",
 				      mode->name, crtc->base.id, offset->x, offset->y);
 
 			if (WARN_ON_ONCE(modeset->num_connectors == DRM_CLIENT_MAX_CLONED_CONNECTORS ||

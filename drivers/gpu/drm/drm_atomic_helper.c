@@ -1576,18 +1576,25 @@ void drm_atomic_helper_commit_tail(struct drm_atomic_state *old_state)
 {
 	struct drm_device *dev = old_state->dev;
 
+	printk("%s:%d\n", __func__, __LINE__);
 	drm_atomic_helper_commit_modeset_disables(dev, old_state);
 
+	printk("%s:%d\n", __func__, __LINE__);
 	drm_atomic_helper_commit_planes(dev, old_state, 0);
 
+	printk("%s:%d\n", __func__, __LINE__);
 	drm_atomic_helper_commit_modeset_enables(dev, old_state);
 
+	printk("%s:%d\n", __func__, __LINE__);
 	drm_atomic_helper_fake_vblank(old_state);
 
+	printk("%s:%d\n", __func__, __LINE__);
 	drm_atomic_helper_commit_hw_done(old_state);
 
+	printk("%s:%d\n", __func__, __LINE__);
 	drm_atomic_helper_wait_for_vblanks(dev, old_state);
 
+	printk("%s:%d\n", __func__, __LINE__);
 	drm_atomic_helper_cleanup_planes(dev, old_state);
 }
 EXPORT_SYMBOL(drm_atomic_helper_commit_tail);

@@ -1,3 +1,4 @@
+#include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_fourcc.h>
 #include <drm/drm_plane.h>
@@ -20,7 +21,10 @@ static const uint64_t mop_format_modifiers[] = {
 	DRM_FORMAT_MOD_INVALID
 };
 
+struct mstar_mop;
+
 struct mstar_mop_window {
+	struct mstar_mop *mop;
 	struct regmap_field *en;
 	struct regmap_field *yaddrl, *yaddrh;
 	struct regmap_field *caddrl, *caddrh;
@@ -36,6 +40,8 @@ struct mstar_mop_window {
 	struct drm_plane drm_plane;
 };
 
+#define plane_to_mop_window(plane) container_of(plane, struct mstar_mop_window, drm_plane)
+
 struct mstar_mop_data {
 	unsigned int num_windows;
 	unsigned int windows_start;
@@ -43,6 +49,7 @@ struct mstar_mop_data {
 };
 
 struct mstar_mop {
+	struct device *dev;
 	const struct mstar_mop_data *data;
 	struct regmap_field *swrst;
 	struct regmap_field *gw_hsize;
@@ -118,15 +125,22 @@ static int mop_plane_atomic_check(struct drm_plane *plane,
 	return 0;
 }
 
-static void mop_plane_atomic_update(struct drm_plane *plane,
-				      struct drm_atomic_state *state)
+static void mstar_mop_plane_atomic_update(struct drm_plane *plane,
+				    struct drm_atomic_state *state)
 {
+	struct drm_plane_state *new_state = drm_atomic_get_new_plane_state(state, plane);
+	struct mstar_mop_window *window = plane_to_mop_window(plane);
+
 	printk("%s\n", __func__);
+
+	regmap_field_write(window->en, new_state->crtc ? 1 : 0);
+
+	mstar_mop_dump_window(window->mop->dev, window);
 }
 
 static const struct drm_plane_helper_funcs mop_plane_helper_funcs = {
 	.atomic_check = mop_plane_atomic_check,
-	.atomic_update = mop_plane_atomic_update,
+	.atomic_update = mstar_mop_plane_atomic_update,
 };
 
 static const struct drm_plane_funcs mop_plane_funcs = {
@@ -194,6 +208,7 @@ static int mstar_mop_probe(struct platform_device *pdev)
 	if (!mop)
 		return -ENOMEM;
 
+	mop->dev = dev;
 	mop->data = match_data;
 
 	base = devm_platform_ioremap_resource(pdev, 0);
@@ -233,6 +248,8 @@ static int mstar_mop_probe(struct platform_device *pdev)
 		struct reg_field scalev_field = REG_FIELD(offset + 0x38, 0, 12);
 		struct mstar_mop_window *window = &mop->windows[i];
 
+		window->mop = mop;
+
 		window->en = devm_regmap_field_alloc(dev, regmap, en_field);
 		window->yaddrl = devm_regmap_field_alloc(dev, regmap, yaddrl_field);
 		window->yaddrh = devm_regmap_field_alloc(dev, regmap, yaddrh_field);
@@ -247,7 +264,7 @@ static int mstar_mop_probe(struct platform_device *pdev)
 		window->src_width = devm_regmap_field_alloc(dev, regmap, srch_field);
 		window->scale_h = devm_regmap_field_alloc(dev, regmap, scaleh_field);
 		window->scale_v = devm_regmap_field_alloc(dev, regmap, scalev_field);
-		//mstar_mop_dump_window(dev, window);
+		mstar_mop_dump_window(dev, window);
 	}
 
 	dev_set_drvdata(dev, mop);

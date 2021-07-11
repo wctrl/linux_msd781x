@@ -42,6 +42,8 @@ uint32_t drm_mode_legacy_fb_format(uint32_t bpp, uint32_t depth)
 {
 	uint32_t fmt = DRM_FORMAT_INVALID;
 
+	printk("%d %d\n", bpp, depth);
+
 	switch (bpp) {
 	case 8:
 		if (depth == 8)
@@ -294,6 +296,7 @@ const struct drm_format_info *drm_format_info(u32 format)
 	const struct drm_format_info *info;
 
 	info = __drm_format_info(format);
+	printk("format %d\n", format);
 	WARN_ON(!info);
 	return info;
 }

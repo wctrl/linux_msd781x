@@ -35,12 +35,17 @@ static struct drm_driver mstar_drv_driver = {
 	.fops = &mstar_drv_fops,
 	.name = "mstar-drm",
 	.desc = "MStar DRM driver",
-	.date = "20191208",
+	.date = "20210706",
 	.major = 1,
 	.minor = 0,
 
 	DRM_GEM_CMA_DRIVER_OPS,
 };
+
+//static const struct drm_mode_config_funcs drv_mode_config_funcs = {
+//	.atomic_check = drm_atomic_helper_check,
+//	.atomic_commit = drm_atomic_helper_commit,
+//};
 
 static int mstar_drv_bind(struct device *dev)
 {
@@ -69,6 +74,11 @@ static int mstar_drv_bind(struct device *dev)
 
 	drm_mode_config_init(drm);
 	drm->mode_config.allow_fb_modifiers = true;
+	drm->mode_config.min_width = 0;
+	drm->mode_config.min_height = 0;
+	drm->mode_config.max_width = 8198;
+	drm->mode_config.max_height = 8198;
+//	drm->mode_config.funcs = &drv_mode_config_funcs;
 
 	ret = component_bind_all(drm->dev, drm);
 	if (ret) {
@@ -95,7 +105,7 @@ static int mstar_drv_bind(struct device *dev)
 	if (ret)
 		goto finish_poll;
 
-	drm_fbdev_generic_setup(drm, 32);
+	drm_fbdev_generic_setup(drm, 16);
 
 	return 0;
 
@@ -131,20 +141,16 @@ static const struct component_master_ops mstar_drv_master_ops = {
 	.unbind	= mstar_drv_unbind,
 };
 
-static int compare_dev_name(struct device *dev, void *data)
+static int compare_of(struct device *dev, void *data)
 {
-	const char *name = data;
-	dev_info(dev, "%s -> %s", dev_name(dev), name);
-	//return !strcmp(dev_name(dev), name);
-	return 1;
+	struct device_node *np = data;
+
+	return dev->of_node == np;
 }
 
 static int mstar_drm_probe(struct platform_device *pdev)
 {
-	dev_info(&pdev->dev, "probe");
-	return drm_of_component_probe(&pdev->dev,
-				      compare_dev_name,
-				      &mstar_drv_master_ops);
+	return drm_of_component_probe(&pdev->dev, compare_of, &mstar_drv_master_ops);
 }
 
 static int mstar_drm_remove(struct platform_device *pdev)
@@ -153,7 +159,7 @@ static int mstar_drm_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id mstar_drm_dt_ids[] = {
-	{ .compatible = "mstar,drm" },
+	{ .compatible = "sstar,ssd20xd-drm" },
 	{},
 };
 MODULE_DEVICE_TABLE(of, mstar_drm_dt_ids);
