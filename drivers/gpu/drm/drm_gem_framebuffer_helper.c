@@ -159,9 +159,6 @@ int drm_gem_fb_init_with_funcs(struct drm_device *dev,
 		unsigned int height = mode_cmd->height / (i ? info->vsub : 1);
 		unsigned int min_size;
 
-		printk("%s:%d\n", __func__, __LINE__);
-		printk("%d:%d\n", width, height);
-
 		objs[i] = drm_gem_object_lookup(file, mode_cmd->handles[i]);
 		if (!objs[i]) {
 			drm_dbg_kms(dev, "Failed to lookup GEM object\n");

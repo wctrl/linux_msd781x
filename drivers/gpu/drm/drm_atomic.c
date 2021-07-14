@@ -1409,7 +1409,6 @@ int drm_atomic_commit(struct drm_atomic_state *state)
 
 	DRM_DEBUG_ATOMIC("committing %p\n", state);
 
-	printk("%s %px\n", __func__, config->funcs->atomic_commit);
 	return config->funcs->atomic_commit(state->dev, state, false);
 }
 EXPORT_SYMBOL(drm_atomic_commit);
@@ -1439,7 +1438,6 @@ int drm_atomic_nonblocking_commit(struct drm_atomic_state *state)
 
 	DRM_DEBUG_ATOMIC("committing %p nonblocking\n", state);
 
-	printk("%s %px\n", __func__, config->funcs->atomic_commit);
 	return config->funcs->atomic_commit(state->dev, state, true);
 }
 EXPORT_SYMBOL(drm_atomic_nonblocking_commit);

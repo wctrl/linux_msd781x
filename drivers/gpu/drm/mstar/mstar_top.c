@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include <drm/drm_crtc.h>
+#include <drm/drm_vblank.h>
 #include <linux/component.h>
 #include <linux/clk.h>
 #include <linux/module.h>
@@ -13,6 +15,7 @@
 #define DRIVER_NAME "mstar-top"
 
 struct mstar_top {
+	struct drm_device *drm_device;
 	struct regmap_field *vsync_pos_flag;
 	struct regmap_field *vsync_pos_mask;
 };
@@ -29,8 +32,23 @@ static const struct regmap_config mstar_top_regmap_config = {
 static irqreturn_t mstar_top_irq(int irq, void *data)
 {
 	struct mstar_top *top = data;
+	struct drm_crtc *crtc;
+	unsigned long flags;
 
 	regmap_field_force_write(top->vsync_pos_flag, 1);
+
+	if (top->drm_device && drm_dev_has_vblank(top->drm_device)) {
+		drm_for_each_crtc(crtc, top->drm_device){
+			drm_crtc_handle_vblank(crtc);
+			spin_lock_irqsave(&crtc->dev->event_lock, flags);
+			if (crtc->state && crtc->state->event) {
+				printk("send event! %px\n",crtc->state->event);
+				drm_crtc_send_vblank_event(crtc, crtc->state->event);
+				crtc->state->event = NULL;
+			}
+			spin_unlock_irqrestore(&crtc->dev->event_lock, flags);
+		}
+	}
 
 	return IRQ_HANDLED;
 }
@@ -40,6 +58,8 @@ static int mstar_top_bind(struct device *dev, struct device *master,
 {
 	struct mstar_top *top = dev_get_drvdata(dev);
 	struct drm_device *drm_device = data;
+
+	top->drm_device = drm_device;
 
 	return 0;
 }

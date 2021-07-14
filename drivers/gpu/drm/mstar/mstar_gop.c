@@ -3,6 +3,8 @@
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_fourcc.h>
+#include <drm/drm_fb_cma_helper.h>
+#include <drm/drm_gem_cma_helper.h>
 #include <drm/drm_plane.h>
 #include <linux/component.h>
 #include <linux/clk.h>
@@ -23,13 +25,28 @@
 
 #define MSTAR_GOP_REG_CONFIG		0x00
 
-static struct reg_field gop_nrst_field = REG_FIELD(MSTAR_GOP_REG_CONFIG, 0, 0);
+static struct reg_field gop_rst_field = REG_FIELD(MSTAR_GOP_REG_CONFIG, 0, 0);
 /* 1 for progressive, 0 for interlaced */
 static struct reg_field gop_scan_type_field = REG_FIELD(MSTAR_GOP_REG_CONFIG, 3, 3);
 /* 1 for yuv, 0 for rgb */
 static struct reg_field gop_colorspace_field = REG_FIELD(MSTAR_GOP_REG_CONFIG, 10, 10);
 static struct reg_field gop_hsmask_field = REG_FIELD(MSTAR_GOP_REG_CONFIG, 14, 14);
 static struct reg_field gop_alphainv_field = REG_FIELD(MSTAR_GOP_REG_CONFIG, 15, 15);
+
+/* Length of the global window in pixels/2 */
+static struct reg_field stretch_window_size_h_field = REG_FIELD(0xc0, 0, 11);
+#define STRETCH_WINDOW_SIZE_H_SHIFT 1
+// sets the global window size
+static struct reg_field stretch_window_size_v_field = REG_FIELD(0xc4, 0, 11);
+// screen gets torn
+static struct reg_field stretch_window_coordinate_h_field = REG_FIELD(0xc8, 0, 11);
+// screen shifts down
+static struct reg_field stretch_window_coordinate_v_field = REG_FIELD(0xd0, 0, 11);
+
+//
+
+// triggers updating the registers
+static struct reg_field gop_commit_all_field = REG_FIELD(0x1fc, 8, 8);
 
 
 // window registers
@@ -45,6 +62,7 @@ struct mstar_gop_data {
 	const enum drm_plane_type type;
 	const unsigned int num_windows;
 	const unsigned int addr_shift;
+	const bool has_stretching;
 
 	/*
 	 * Register offsets for registers that are at different locations
@@ -54,6 +72,14 @@ struct mstar_gop_data {
 	const unsigned int offset_hend;
 	const unsigned int offset_vstart;
 	const unsigned int offset_vend;
+	const unsigned int offset_pitch;
+
+	/*
+	 * callbacks to convert DRM color formats
+	 * to GOP formats
+	 */
+	int (*drm_color_to_gop)(u32 fourcc);
+	int (*gop_color_to_drm)(void);
 };
 
 struct mstar_gop;
@@ -69,6 +95,7 @@ struct mstar_gop_window {
 	struct regmap_field *hend;
 	struct regmap_field *vstart;
 	struct regmap_field *vend;
+	struct regmap_field *pitch;
 };
 
 #define plane_to_gop_window(plane) container_of(plane, struct mstar_gop_window, drm_plane)
@@ -78,10 +105,18 @@ struct mstar_gop {
 	struct clk *fclk; /* vendor code says this is only needed when setting the palette */
 	const struct mstar_gop_data *data;
 
-	struct regmap_field *nrst;
+	struct regmap_field *rst;
 	struct regmap_field *scan_type;
 	struct regmap_field *colorspace;
 	struct regmap_field *dst;
+
+	struct regmap_field *stretch_window_size_h;
+	struct regmap_field *stretch_window_size_v;
+	struct regmap_field *stretch_window_coordinate_h;
+	struct regmap_field *stretch_window_coordinate_v;
+
+	struct regmap_field *commit_all;
+
 	struct mstar_gop_window windows[];
 };
 
@@ -97,30 +132,47 @@ static irqreturn_t mstar_gop_irq(int irq, void *data)
 }
 
 static const char* dsts[] = {
-		"ip_main", "ip_sub", "op", "mvop", "sub_mvop", "unknown", "frc", "unknown"
+	"ip_main",
+	"ip_sub",
+	"op",
+	"mvop",
+	"sub_mvop",
+	"unknown",
+	"frc",
+	"unknown",
 };
 
 static void mstar_gop_dump(struct mstar_gop *gop){
-	unsigned int val, nrst, scan_type, colorspace, dst;
+	unsigned int val, rst, scan_type, colorspace, dst;
+	unsigned int stretchh, stretchv, coordinateh, coordinatev;
 	int i;
 
-	regmap_field_read(gop->nrst, &nrst);
+	regmap_field_read(gop->rst, &rst);
 	regmap_field_read(gop->scan_type, &scan_type);
 	regmap_field_read(gop->colorspace, &colorspace);
 	regmap_field_read(gop->dst, &dst);
+
+	regmap_field_read(gop->stretch_window_size_h, &stretchh);
+	stretchh = stretchh << STRETCH_WINDOW_SIZE_H_SHIFT;
+	regmap_field_read(gop->stretch_window_size_v, &stretchv);
+	regmap_field_read(gop->stretch_window_coordinate_h, &coordinateh);
+	regmap_field_read(gop->stretch_window_coordinate_v, &coordinatev);
+
 	dev_info(gop->dev,
-		 "nrst: %d\n"
+		 "rst: %d\n"
 		 "scan_type: %s\n"
 		 "colorspace: %s\n"
-		 "dst: %s\n",
-		 nrst,
-		 colorspace ? "rgb" : "yuv",
+		 "dst: %s\n"
+		 "stretch window: %d x %d (%d:%d)\n",
+		 rst,
 		 scan_type ? "progressive" : "interlaced",
-		 dsts[dst]);
+		 colorspace ? "yuv" : "rgb",
+		 dsts[dst],
+		 stretchh, stretchv, coordinateh, coordinatev);
 
 	for (i = 0; i < gop->data->num_windows; i++){
 		struct mstar_gop_window *window = &gop->windows[i];
-		u32 en, addr, hstart, hend, vstart, vend;
+		u32 en, addr, hstart, hend, vstart, vend, pitch;
 
 		regmap_field_read(window->en, &en);
 		regmap_field_read(window->addrh, &val);
@@ -133,15 +185,18 @@ static void mstar_gop_dump(struct mstar_gop *gop){
 		regmap_field_read(window->hend, &hend);
 		regmap_field_read(window->vstart, &vstart);
 		regmap_field_read(window->vend, &vend);
+		regmap_field_read(window->pitch, &pitch);
 
 		dev_info(gop->dev,
 			"window 1:\n"
 			"en: %d\n"
 			"addr: 0x%08x\n"
-			"hstart: %d, hend %d, vstart: %d, vend: %d\n",
+			"hstart: %d, hend %d, vstart: %d, vend: %d\n"
+			"pitch: %d\n",
 			en,
 			addr,
-			hstart, hend, vstart, vend
+			hstart * 4, hend * 4, vstart, vend,
+			pitch << gop->data->addr_shift
 		);
 
 	}
@@ -151,18 +206,51 @@ static void mstar_gop_dump(struct mstar_gop *gop){
 
 static void mstar_gop_reset(struct mstar_gop *gop)
 {
-	regmap_field_force_write(gop->nrst, 0);
+	regmap_field_force_write(gop->rst, 1);
 	mdelay(10);
-	regmap_field_force_write(gop->nrst, 1);
+	regmap_field_force_write(gop->rst, 0);
 	mdelay(10);
 
 	mstar_gop_dump(gop);
 }
 
+static int gop_ssd20xd_gop0_drm_color_to_gop(u32 fourcc)
+{
+	switch(fourcc){
+	case DRM_FORMAT_ARGB1555:
+		return 0x3;
+	case DRM_FORMAT_ARGB4444:
+		return 0x4;
+	};
+
+	return -ENOTSUPP;
+}
+
+static int gop_ssd20xd_gop0_gop_color_to_drm(void)
+{
+	return -ENOTSUPP;
+}
+
+static int gop_ssd20xd_gop1_drm_color_to_gop(u32 fourcc)
+{
+	switch(fourcc){
+	case DRM_FORMAT_ARGB1555:
+		return 0x0;
+	case DRM_FORMAT_RGB565:
+		return 0x1;
+	};
+
+	return -ENOTSUPP;
+}
+
+static int gop_ssd20xd_gop1_gop_color_to_drm(void)
+{
+	return -ENOTSUPP;
+}
+
 static int gop_plane_atomic_check(struct drm_plane *plane,
 				  struct drm_atomic_state *state)
 {
-	printk("%s\n", __func__);
 	return 0;
 }
 
@@ -170,11 +258,44 @@ static void gop_plane_atomic_update(struct drm_plane *plane,
 				    struct drm_atomic_state *state)
 {
 	struct mstar_gop_window *window = plane_to_gop_window(plane);
+	struct mstar_gop *gop = window->gop;
 	struct drm_plane_state *new_state = drm_atomic_get_new_plane_state(state, plane);
+	struct drm_framebuffer *fb = new_state->fb;
+	struct drm_gem_cma_object *gem = drm_fb_cma_get_gem_obj(fb, 0);
+	u32 addr;
 
-	printk("%s\n", __func__);
+	if (!gem)
+		return;
+
+	// global window first
+	/* Not sure why but the output colour space needs to be YUV */
+	regmap_field_force_write(gop->colorspace, 1);
+
+	regmap_field_write(gop->stretch_window_size_h,
+			   new_state->crtc_w >> STRETCH_WINDOW_SIZE_H_SHIFT);
+	regmap_field_write(gop->stretch_window_size_v, new_state->crtc_h);
+	regmap_field_write(gop->stretch_window_coordinate_h, new_state->crtc_x);
+	regmap_field_write(gop->stretch_window_coordinate_v, new_state->crtc_y);
+
+	// gop window
 
 	regmap_field_write(window->en, new_state->crtc ? 1 : 0);
+	regmap_field_write(window->format, gop->data->drm_color_to_gop(fb->format->format));
+
+	regmap_field_write(window->hstart, new_state->crtc_x);
+	regmap_field_write(window->vstart, new_state->crtc_y);
+
+	// This seems to be the same as pitch?
+	regmap_field_write(window->hend, fb->pitches[0] >> gop->data->addr_shift);
+	regmap_field_write(window->vend, new_state->crtc_y + new_state->crtc_h);
+
+	regmap_field_write(window->pitch, fb->pitches[0] >> gop->data->addr_shift);
+
+	addr = gem->paddr >> window->gop->data->addr_shift;
+	regmap_field_write(window->addrh, addr >> 16);
+	regmap_field_write(window->addrl, addr);
+
+	regmap_field_force_write(window->gop->commit_all, 1);
 
 	mstar_gop_dump(window->gop);
 }
@@ -263,10 +384,17 @@ static int mstar_gop_probe(struct platform_device *pdev)
 	if(IS_ERR(regmap))
 		return PTR_ERR(regmap);
 
-	gop->nrst = regmap_field_alloc(regmap, gop_nrst_field);
+	gop->rst = regmap_field_alloc(regmap, gop_rst_field);
 	gop->scan_type = regmap_field_alloc(regmap, gop_scan_type_field);
 	gop->colorspace = regmap_field_alloc(regmap, gop_colorspace_field);
 	gop->dst = regmap_field_alloc(regmap, gop_dst_field);
+
+	gop->stretch_window_size_h = regmap_field_alloc(regmap, stretch_window_size_h_field);
+	gop->stretch_window_size_v = regmap_field_alloc(regmap, stretch_window_size_v_field);
+	gop->stretch_window_coordinate_h = regmap_field_alloc(regmap, stretch_window_coordinate_h_field);
+	gop->stretch_window_coordinate_v = regmap_field_alloc(regmap, stretch_window_coordinate_v_field);
+
+	gop->commit_all = regmap_field_alloc(regmap, gop_commit_all_field);
 
 	for (i = 0; i < match_data->num_windows; i++){
 		struct mstar_gop_window *window = &gop->windows[i];
@@ -279,6 +407,7 @@ static int mstar_gop_probe(struct platform_device *pdev)
 		struct reg_field hend_field = REG_FIELD(winoffset + match_data->offset_hend, 0, 15);
 		struct reg_field vstart_field = REG_FIELD(winoffset + match_data->offset_vstart, 0, 15);
 		struct reg_field vend_field = REG_FIELD(winoffset + match_data->offset_vend, 0, 15);
+		struct reg_field pitch_field = REG_FIELD(winoffset + match_data->offset_pitch, 0, 10);
 
 		window->gop = gop;
 
@@ -291,6 +420,7 @@ static int mstar_gop_probe(struct platform_device *pdev)
 		window->hend = devm_regmap_field_alloc(dev, regmap, hend_field);
 		window->vstart = devm_regmap_field_alloc(dev, regmap, vstart_field);
 		window->vend = devm_regmap_field_alloc(dev, regmap, vend_field);
+		window->pitch = devm_regmap_field_alloc(dev, regmap, pitch_field);
 	}
 
 	irq = irq_of_parse_and_map(pdev->dev.of_node, 0);
@@ -343,10 +473,14 @@ static const struct mstar_gop_data ssd20xd_gop0_data = {
 	.type = DRM_PLANE_TYPE_CURSOR,
 	.num_windows = 1,
 	.addr_shift = 4,
+	.has_stretching = false,
 	.offset_hstart = 0xc,
 	.offset_hend = 0x10,
 	.offset_vstart = 0x14,
 	.offset_vend = 0x18,
+	.offset_pitch = 0x1c,
+	.drm_color_to_gop = gop_ssd20xd_gop0_drm_color_to_gop,
+	.gop_color_to_drm = gop_ssd20xd_gop0_gop_color_to_drm,
 };
 
 static const struct mstar_gop_data ssd20xd_gop1_data = {
@@ -355,10 +489,14 @@ static const struct mstar_gop_data ssd20xd_gop1_data = {
 	.type = DRM_PLANE_TYPE_PRIMARY,
 	.num_windows = 1,
 	.addr_shift = 4,
+	.has_stretching = true,
 	.offset_hstart = 0x10, // confirmed
 	.offset_hend = 0x14, // confirmed
 	.offset_vstart = 0x18, // confirmed
 	.offset_vend = 0x20, // confirmed
+	.offset_pitch = 0x24,
+	.drm_color_to_gop = gop_ssd20xd_gop1_drm_color_to_gop,
+	.gop_color_to_drm = gop_ssd20xd_gop1_gop_color_to_drm,
 };
 
 static const struct of_device_id mstar_gop_dt_ids[] = {

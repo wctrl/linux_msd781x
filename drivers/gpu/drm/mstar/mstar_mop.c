@@ -183,6 +183,11 @@ static int mstar_mop_bind(struct device *dev, struct device *master,
 static void mstar_mop_unbind(struct device *dev, struct device *master,
 			    void *data)
 {
+	struct mstar_mop *mop = dev_get_drvdata(dev);
+	int i;
+
+	for(i = 0; i < mop->data->num_windows; i++)
+		drm_plane_cleanup(&mop->windows[i].drm_plane);
 }
 
 static const struct component_ops mstar_mop_component_ops = {
@@ -232,6 +237,8 @@ static int mstar_mop_probe(struct platform_device *pdev)
 
 	for (i = 0; i < match_data->num_windows; i++){
 		unsigned int offset = match_data->windows_start + (match_data->window_len * i);
+		unsigned int en;
+
 		struct reg_field en_field = REG_FIELD(offset + 0, 0, 0);
 		struct reg_field yaddrl_field = REG_FIELD(offset + 0x8, 0, 15);
 		struct reg_field yaddrh_field = REG_FIELD(offset + 0xc, 0, 11);
@@ -265,6 +272,9 @@ static int mstar_mop_probe(struct platform_device *pdev)
 		window->scale_h = devm_regmap_field_alloc(dev, regmap, scaleh_field);
 		window->scale_v = devm_regmap_field_alloc(dev, regmap, scalev_field);
 		mstar_mop_dump_window(dev, window);
+
+		/* Turn off bootloader enabled windows */
+		regmap_field_write(window->en, 0);
 	}
 
 	dev_set_drvdata(dev, mop);
