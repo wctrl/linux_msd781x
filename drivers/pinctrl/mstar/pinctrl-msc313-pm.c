@@ -325,6 +325,12 @@ static const struct of_device_id msc313_pinctrl_pm_of_match[] = {
 		.data		= &ssd20xd_info,
 	},
 #endif
+//#if CONFIG_MACH_PIONEER
+	{
+		.compatible	= "sstar,ssd212-pm-pinctrl",
+		.data		= &ssd20xd_info,
+	},
+//#endif
 #ifdef CONFIG_MACH_MERCURY
 	{
 		.compatible	= "mstar,ssc8336-pm-pinctrl",
