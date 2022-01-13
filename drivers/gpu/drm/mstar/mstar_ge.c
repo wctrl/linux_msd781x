@@ -14,6 +14,7 @@
 #define DRIVER_NAME "mstar-ge"
 
 #define REG_CTRL		0x0
+#define REG_CTRL1		0x4
 #define REG_CMQ_STATUS		0x1c
 #define REG_IRQ			0x78
 #define REG_SRCL		0x80
@@ -21,6 +22,8 @@
 #define REG_DSTL		0x98
 #define REG_DSTH		0x9c
 #define REG_SRCPITCH		0xc0
+#define REG_TAGL		0xc4
+#define REG_TAGH		0xc8
 #define REG_DSTPITCH		0xcc
 #define REG_COLORFMT		0xd0
 #define REG_CLIP_LEFT		0x154
@@ -29,10 +32,15 @@
 #define REG_CLIP_BOTTOM		0x160
 #define REG_ROT			0x164
 #define REG_CMD			0x180
+#define REG_X0			0x1a0
+#define REG_Y0			0x1a4
+#define REG_X1			0x1a8
+#define REG_Y1			0x1ac
 #define REG_BITBLT_SRCWIDTH	0x1b8
 #define REG_BITBLT_SRCHEIGHT	0x1bc
 
 static const struct reg_field en_field = REG_FIELD(REG_CTRL, 0, 0);
+static const struct reg_field clk_en_field = REG_FIELD(REG_CTRL1, 15, 15);
 
 static const struct reg_field gebusy_field = REG_FIELD(REG_CMQ_STATUS, 0, 0);
 static const struct reg_field cmq_free_field = REG_FIELD(REG_CMQ_STATUS, 3, 7);
@@ -52,7 +60,7 @@ static const struct reg_field dsth_field = REG_FIELD(REG_DSTH, 0, 12);
 static const struct reg_field srcpitch_field = REG_FIELD(REG_SRCPITCH, 0, 13);
 static const struct reg_field dstpitch_field = REG_FIELD(REG_DSTPITCH, 0, 13);
 
-static const struct reg_field src_colorfmt_field = REG_FIELD(REG_COLORFMT, 0, 4);
+static const struct reg_field src_colorfmt_field = REG_FIELD(REG_COLORFMT, 0, 12);
 static const struct reg_field dst_colorfmt_field = REG_FIELD(REG_COLORFMT, 8, 12);
 #define COLOR_FORMAT_ARGB8888	0xf
 
@@ -73,13 +81,22 @@ static const struct reg_field prim_type_field = REG_FIELD(REG_CMD, 4, 6);
 #define PRIM_TYPE_BITBLT	4
 #define PRIM_TYPE_FREEZE	7
 
+static const struct reg_field x0_field = REG_FIELD(REG_X0, 0, 11);
+static const struct reg_field y0_field = REG_FIELD(REG_Y0, 0, 11);
+static const struct reg_field x1_field = REG_FIELD(REG_X1, 0, 11);
+static const struct reg_field y1_field = REG_FIELD(REG_Y1, 0, 11);
+
 static const struct reg_field bitblt_srcwidth_field = REG_FIELD(REG_BITBLT_SRCWIDTH, 0, 11);
 static const struct reg_field bitblt_srcheight_field = REG_FIELD(REG_BITBLT_SRCHEIGHT, 0, 11);
+
+static const struct reg_field tagh_field = REG_FIELD(REG_TAGL, 0, 15);
+static const struct reg_field tagl_field = REG_FIELD(REG_TAGH, 0, 15);
 
 struct mstar_ge {
 	struct device *dev;
 	struct clk *clk;
-	struct regmap_field *en, *busy;
+	u32 tag;
+	struct regmap_field *en, *clk_en, *busy;
 	struct regmap_field *cmq_free, *cmq2_free;
 	struct regmap_field *irq_mask, *irq_force, *irq_clr, *irq_status;
 	struct regmap_field *srcl, *srch;
@@ -89,7 +106,9 @@ struct mstar_ge {
 	struct regmap_field *clip_left, *clip_right, *clip_top, *clip_bottom;
 	struct regmap_field *rot;
 	struct regmap_field *prim_type;
+	struct regmap_field *x0, *y0, *x1, *y1;
 	struct regmap_field *bitblt_src_width, *bitblt_src_height;
+	struct regmap_field *tagl, *tagh;
 };
 
 static const struct regmap_config mstar_ge_regmap_config = {
@@ -109,10 +128,90 @@ static int mstar_ge_cmq_free(struct mstar_ge *ge)
 	return cmqfree;
 }
 
+static void asciiart(void *bm, int width, int height)
+{
+	int y;
+
+	for(y = 0; y < height; y++)
+		printk("%32ph\n", &((u32*)bm)[width * y]);
+}
+
+static void mstar_ge_tag(struct mstar_ge *ge)
+{
+	ge->tag++;
+	regmap_field_force_write(ge->tagl, ge->tag);
+	regmap_field_force_write(ge->tagh, ge->tag >> 16);
+}
+
+static int mstar_ge_do_line(struct mstar_ge *ge)
+{
+	void *dst;
+	int width = 8, height = 8;
+	int psz = 4;
+	int pitch = psz * width;
+	size_t bufsz = (width * height) * psz;
+	dma_addr_t dmadst;
+	int ret;
+
+	dev_info(ge->dev, "doing line draw, free %d\n", mstar_ge_cmq_free(ge));
+
+	mstar_ge_tag(ge);
+
+	dst = kzalloc(bufsz, GFP_KERNEL);
+	if(!dst)
+		return -ENOMEM;
+
+	memset(dst, 0x55, bufsz);
+	printk("dst before\n");
+	asciiart(dst, width, height);
+
+	dmadst = dma_map_single(ge->dev, dst, bufsz, DMA_TO_DEVICE);
+	ret = dma_mapping_error(ge->dev, dmadst);
+	if(ret)
+		goto err_free_dst;
+
+	regmap_field_write(ge->en, 1);
+
+	regmap_field_write(ge->dstl, dmadst);
+	regmap_field_write(ge->dsth, dmadst >> 16);
+	regmap_field_write(ge->dstpitch, pitch);
+	//regmap_field_write(ge->dstclrfmt, COLOR_FORMAT_ARGB8888);
+
+	/* Setup the clip window */
+	regmap_field_write(ge->clip_left, 0);
+	regmap_field_write(ge->clip_right, width - 1);
+	regmap_field_write(ge->clip_top, 0);
+	regmap_field_write(ge->clip_bottom, height - 1);
+
+	//regmap_field_write(ge->x1, width);
+	//regmap_field_write(ge->y1, height);
+
+	regmap_field_write(ge->bitblt_src_width, width);
+	regmap_field_write(ge->bitblt_src_height, height);
+
+
+	regmap_field_force_write(ge->prim_type, PRIM_TYPE_LINE);
+	//regmap_field_write(ge->en, 0);
+	mdelay(100);
+
+	dev_info(ge->dev, "line done: %px, %d\n",(void*)dmadst, mstar_ge_cmq_free(ge));
+
+err_unmap_dst:
+	dma_unmap_single(ge->dev, dmadst, bufsz, DMA_TO_DEVICE);
+
+	printk("dest\n");
+	asciiart(dst, width, height);
+
+err_free_dst:
+	kfree(dst);
+
+	return ret;
+}
+
 static int mstar_ge_do_bitblt(struct mstar_ge *ge)
 {
 	void *src, *dst;
-	int width = 128, height = 128;
+	int width = 8, height = 8;
 	int psz = 4;
 	int pitch = psz * width;
 	size_t bufsz = (width * height) * psz;
@@ -122,12 +221,23 @@ static int mstar_ge_do_bitblt(struct mstar_ge *ge)
 
 	dev_info(ge->dev, "doing bitblt, free %d\n", mstar_ge_cmq_free(ge));
 
+	mstar_ge_tag(ge);
+
 	src = kzalloc(bufsz, GFP_KERNEL);
 	if(!src)
 		return -ENOMEM;
+
+	((u32*) src)[0] = 0xffffff;
+	printk("src before\n");
+	asciiart(src, width, height);
+
 	dst = kzalloc(bufsz, GFP_KERNEL);
 	if(!dst)
 		return -ENOMEM;
+
+	((u32*) dst)[0] = 0xaabbcc;
+	printk("dst before\n");
+	asciiart(dst, width, height);
 
 	dmasrc = dma_map_single(ge->dev, src, bufsz, DMA_TO_DEVICE);
 	ret = dma_mapping_error(ge->dev, dmasrc);
@@ -147,8 +257,8 @@ static int mstar_ge_do_bitblt(struct mstar_ge *ge)
 	regmap_field_write(ge->dsth, dmadst >> 16);
 	regmap_field_write(ge->srcpitch, pitch);
 	regmap_field_write(ge->dstpitch, pitch);
-	regmap_field_write(ge->srcclrfmt, COLOR_FORMAT_ARGB8888);
-	regmap_field_write(ge->dstclrfmt, COLOR_FORMAT_ARGB8888);
+	regmap_field_write(ge->srcclrfmt, 0xF0F);
+	//regmap_field_write(ge->dstclrfmt, COLOR_FORMAT_ARGB8888);
 
 	/* Setup the clip window */
 	regmap_field_write(ge->clip_left, 0);
@@ -159,19 +269,30 @@ static int mstar_ge_do_bitblt(struct mstar_ge *ge)
 	regmap_field_write(ge->bitblt_src_width, width);
 	regmap_field_write(ge->bitblt_src_height, height);
 
+	regmap_field_write(ge->rot, ROTATION_180);
+
 	regmap_field_force_write(ge->prim_type, PRIM_TYPE_BITBLT);
 	//regmap_field_write(ge->en, 0);
+	mdelay(100);
 
 	dev_info(ge->dev, "bitblt done: %px %px, %d\n",
 			(void*)dmasrc, (void*)dmadst, mstar_ge_cmq_free(ge));
 
-	kfree(src);
-	kfree(dst);
+
 
 err_unmap_dst:
 	dma_unmap_single(ge->dev, dmadst, bufsz, DMA_TO_DEVICE);
 err_unmap_src:
 	dma_unmap_single(ge->dev, dmasrc, bufsz, DMA_TO_DEVICE);
+err_free_src:
+
+	printk("src\n");
+	asciiart(src, width, height);
+	printk("dest\n");
+	asciiart(dst, width, height);
+
+	kfree(src);
+	kfree(dst);
 
 	return ret;
 }
@@ -196,11 +317,10 @@ static irqreturn_t mstar_ge_irq(int irq, void *data)
 	unsigned int status;
 
 	regmap_field_read(ge->irq_status, &status);
-
-	printk("ge int, %x\n", status);
-
 	regmap_field_write(ge->irq_force, 0);
 	regmap_field_write(ge->irq_clr, ~0);
+
+	printk("ge int, %x\n", status);
 
 	return IRQ_HANDLED;
 }
@@ -211,7 +331,7 @@ static int mstar_ge_probe(struct platform_device *pdev)
 	struct regmap *regmap;
 	struct mstar_ge *ge;
 	void __iomem *base;
-	int irq, ret;
+	int irq, ret, i;
 
 	ge = devm_kzalloc(dev, sizeof(*ge), GFP_KERNEL);
 	if (!ge)
@@ -228,6 +348,7 @@ static int mstar_ge_probe(struct platform_device *pdev)
 		return PTR_ERR(regmap);
 
 	ge->en = devm_regmap_field_alloc(dev, regmap, en_field);
+	ge->clk_en = devm_regmap_field_alloc(dev, regmap, clk_en_field);
 	ge->busy = devm_regmap_field_alloc(dev, regmap, gebusy_field);
 	ge->cmq_free = devm_regmap_field_alloc(dev, regmap, cmq_free_field);
 	ge->cmq2_free = devm_regmap_field_alloc(dev, regmap, cmq2_free_field);
@@ -249,8 +370,15 @@ static int mstar_ge_probe(struct platform_device *pdev)
 	ge->clip_bottom = devm_regmap_field_alloc(dev, regmap, clip_bottom_field);
 	ge->rot = devm_regmap_field_alloc(dev, regmap, rot_field);
 	ge->prim_type = devm_regmap_field_alloc(dev, regmap, prim_type_field);
+	ge->x0 = devm_regmap_field_alloc(dev, regmap, x0_field);
+	ge->y0 = devm_regmap_field_alloc(dev, regmap, y0_field);
+	ge->x1 = devm_regmap_field_alloc(dev, regmap, x1_field);
+	ge->y1 = devm_regmap_field_alloc(dev, regmap, y1_field);
 	ge->bitblt_src_width = devm_regmap_field_alloc(dev, regmap, bitblt_srcwidth_field);
 	ge->bitblt_src_height = devm_regmap_field_alloc(dev, regmap, bitblt_srcheight_field);
+
+	ge->tagl = devm_regmap_field_alloc(dev, regmap, tagl_field);
+	ge->tagh = devm_regmap_field_alloc(dev, regmap, tagh_field);
 
 	ge->clk = devm_clk_get(dev, "ge");
 	if (IS_ERR(ge->clk))
@@ -262,14 +390,19 @@ static int mstar_ge_probe(struct platform_device *pdev)
 	if (!irq)
 		return -ENODEV;
 
-	regmap_field_write(ge->irq_mask, 0);
 	ret = devm_request_irq(dev, irq, mstar_ge_irq, IRQF_SHARED, dev_name(dev), ge);
 	if (ret)
 		return ret;
 
+	regmap_field_write(ge->irq_mask, 0);
+	regmap_field_write(ge->clk_en, 1);
+
 	dev_set_drvdata(dev, ge);
 
-	mstar_ge_do_bitblt(ge);
+	for(i = 0; i < 2; i++)
+		mstar_ge_do_line(ge);
+
+	//mstar_ge_do_bitblt(ge);
 
 	return component_add(&pdev->dev, &mstar_ge_component_ops);
 }
