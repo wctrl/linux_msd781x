@@ -141,6 +141,7 @@ static void mstar_ge_tag(struct mstar_ge *ge)
 	ge->tag++;
 	regmap_field_force_write(ge->tagl, ge->tag);
 	regmap_field_force_write(ge->tagh, ge->tag >> 16);
+	dev_info(ge->dev, "tag is: %d\n", (unsigned) ge->tag);
 }
 
 static int mstar_ge_do_line(struct mstar_ge *ge)
@@ -175,7 +176,7 @@ static int mstar_ge_do_line(struct mstar_ge *ge)
 	regmap_field_write(ge->dstl, dmadst);
 	regmap_field_write(ge->dsth, dmadst >> 16);
 	regmap_field_write(ge->dstpitch, pitch);
-	//regmap_field_write(ge->dstclrfmt, COLOR_FORMAT_ARGB8888);
+	regmap_field_write(ge->dstclrfmt, COLOR_FORMAT_ARGB8888);
 
 	/* Setup the clip window */
 	regmap_field_write(ge->clip_left, 0);
@@ -190,6 +191,7 @@ static int mstar_ge_do_line(struct mstar_ge *ge)
 	regmap_field_write(ge->bitblt_src_height, height);
 
 
+	//regmap_field_force_write(ge->prim_type, 0x7);
 	regmap_field_force_write(ge->prim_type, PRIM_TYPE_LINE);
 	//regmap_field_write(ge->en, 0);
 	mdelay(100);
@@ -318,7 +320,16 @@ static irqreturn_t mstar_ge_irq(int irq, void *data)
 
 	regmap_field_read(ge->irq_status, &status);
 	regmap_field_write(ge->irq_force, 0);
-	regmap_field_write(ge->irq_clr, ~0);
+
+
+	/*
+	 * To clear the irq the clear bits need to be
+	 * set, but apparently the hardware doesn't clear
+	 * them so if we don't clear them no more interrupts
+	 * happen..
+	 */
+	regmap_field_force_write(ge->irq_clr, ~0);
+	regmap_field_force_write(ge->irq_clr, 0);
 
 	printk("ge int, %x\n", status);
 
@@ -399,9 +410,7 @@ static int mstar_ge_probe(struct platform_device *pdev)
 
 	dev_set_drvdata(dev, ge);
 
-	for(i = 0; i < 2; i++)
-		mstar_ge_do_line(ge);
-
+	mstar_ge_do_line(ge);
 	//mstar_ge_do_bitblt(ge);
 
 	return component_add(&pdev->dev, &mstar_ge_component_ops);
