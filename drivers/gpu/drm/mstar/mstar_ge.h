@@ -24,10 +24,17 @@ struct mstar_ge_job {
 	u32 src_width, src_height, dst_width, dst_height;
 	u32 src_pitch, dst_pitch;
 	u32 src_fourcc, dst_fourcc;
+	u32 tag;
 	union {
 		struct mstar_ge_bitblt bitblt;
 	};
+	struct list_head queue;
 };
+
+static inline void mstar_ge_job_init(struct mstar_ge_job *job)
+{
+	INIT_LIST_HEAD(&job->queue);
+}
 
 #define mstar_ge_job_srcsz(j) (j->src_pitch * j->src_height)
 #define mstar_ge_job_dstsz(j) (j->src_pitch * j->src_height)

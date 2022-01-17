@@ -129,6 +129,8 @@ struct mstar_ge {
 
 	/* p256 */
 	struct regmap_field *p256_b, *p256_g, *p256_r, *p256_a, *p256_index, *p256_rw;
+
+	struct list_head queue;
 };
 
 static const struct regmap_config mstar_ge_regmap_config = {
@@ -398,13 +400,16 @@ static void mstar_ge_read_p256(struct mstar_ge *ge)
 
 int mstar_ge_queue_job(struct mstar_ge *ge, struct mstar_ge_job *job)
 {
+	/* dst is mandatory */
+	if (!job->dst_addr)
+		return -EINVAL;
+
+	list_add_tail(&job->queue, &ge->queue);
+
 	/* src is optional */
 	if(job->src_addr)
 		mstar_ge_set_src(ge, job->src_addr, job->src_pitch);
 
-	/* dst is mandatory */
-	if (!job->dst_addr)
-		return -EINVAL;
 	mstar_ge_set_dst(ge, job->dst_addr, job->dst_pitch);
 
 	regmap_field_write(ge->srcclrfmt, mstar_ge_drm_color_to_gop(job->src_fourcc) |
@@ -443,6 +448,7 @@ static const struct component_ops mstar_ge_component_ops = {
 static irqreturn_t mstar_ge_irq(int irq, void *data)
 {
 	struct mstar_ge *ge = data;
+	struct mstar_ge_job *job;
 	unsigned int status;
 
 	regmap_field_read(ge->irq_status, &status);
@@ -459,6 +465,15 @@ static irqreturn_t mstar_ge_irq(int irq, void *data)
 	regmap_field_force_write(ge->irq_clr, 0);
 
 	printk("ge int, %x\n", status);
+
+	if (list_empty(&ge->queue)) {
+		dev_err(ge->dev, "Interrupt when no jobs queued!\n");
+		return IRQ_NONE;
+	}
+
+	job = list_first_entry(&ge->queue, struct mstar_ge_job, queue);
+
+	list_del(&job->queue);
 
 	return IRQ_HANDLED;
 }
@@ -516,6 +531,7 @@ static int mstar_ge_test(struct mstar_ge *ge)
 	void *src, *dst;
 	int ret;
 
+	mstar_ge_job_init(&j);
 	j.op = MSTAR_GE_OP_BITBLT;
 	j.src_width = 8;
 	j.src_height = 8;
@@ -569,6 +585,8 @@ static int mstar_ge_probe(struct platform_device *pdev)
 	ge = devm_kzalloc(dev, sizeof(*ge), GFP_KERNEL);
 	if (!ge)
 		return -ENOMEM;
+
+	INIT_LIST_HEAD(&ge->queue);
 
 	ge->dev = dev;
 
