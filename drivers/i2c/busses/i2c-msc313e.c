@@ -15,6 +15,7 @@
 #include <linux/i2c.h>
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
+#include <linux/pm_runtime.h>
 
 /*
  * MSC313 i2c controller
@@ -174,7 +175,9 @@ struct msc313e_i2c {
 	struct regmap_field *dma_trigger;
 	struct regmap_field *dma_retrigger;
 
+	/* irq stuff */
 	wait_queue_head_t wait;
+	unsigned int int_status;
 	bool done;
 };
 
@@ -186,18 +189,23 @@ static const struct regmap_config msc313e_i2c_regmap_config = {
 
 static irqreturn_t msc313_i2c_irq(int irq, void *data)
 {
-	struct msc313e_i2c *i2c = data;
-	unsigned int intstatus;
+	struct msc313e_i2c *bus = data;
+	unsigned int dma_txr_done;
 
-	regmap_field_read(i2c->intstat, &intstatus);
-	regmap_write(i2c->regmap, REG_INT_CTRL, 1);
-	i2c->done = true;
-	wake_up(&i2c->wait);
+	//printk("i2c irq\n");
+	regmap_field_read(bus->intstat, &bus->int_status);
+	regmap_write(bus->regmap, REG_INT_CTRL, 1);
+
+	regmap_field_read(bus->dma_txr_done, &dma_txr_done);
+	regmap_field_force_write(bus->dma_txr_done, 0);
+
+	bus->done = true;
+	wake_up(&bus->wait);
 
 	return IRQ_HANDLED;
 }
 
-static void printhwstate(struct msc313e_i2c *i2c)
+static void msc313_i2c_printhwstate(struct msc313e_i2c *i2c)
 {
 	unsigned int state;
 
@@ -209,9 +217,16 @@ static int msc313e_i2c_waitforidle(struct msc313e_i2c *i2c)
 {
 	wait_event_timeout(i2c->wait, i2c->done, HZ / 100);
 
-	if(!i2c->done){
+	if (!i2c->done) {
 		dev_err(&i2c->i2c.dev, "timeout waiting for hardware to become idle\n");
-		printhwstate(i2c);
+		msc313_i2c_printhwstate(i2c);
+
+		/* do a reset */
+		regmap_field_force_write(i2c->rst, 1);
+		mdelay(10);
+		regmap_field_force_write(i2c->rst, 0);
+		mdelay(10);
+
 		return 1;
 	}
 
@@ -226,15 +241,12 @@ static int msc313_i2c_xfer_dma(struct msc313e_i2c *i2c, struct i2c_msg *msg, u8 
 	enum dma_data_direction dir = read ? DMA_FROM_DEVICE : DMA_TO_DEVICE;
 	dma_addr_t dma_addr;
 
-	printk("dma i2c read: %d, len: %d\n", read, msg->len);
+	//printk("dma i2c read: %d, len: %d\n", read, msg->len);
 
 	dma_addr = dma_map_single(i2c->dev, dma_buf, msg->len, dir);
 	if (dma_mapping_error(i2c->dev, dma_addr)) {
 		return -ENOMEM;
 	};
-
-	regmap_field_force_write(i2c->dma_reset, 0);
-	mdelay(10);
 
 	/* controller setup */
 	regmap_field_write(i2c->endma, 1);
@@ -258,9 +270,6 @@ static int msc313_i2c_xfer_dma(struct msc313e_i2c *i2c, struct i2c_msg *msg, u8 
 
 	dma_unmap_single(i2c->dev, dma_addr, msg->len, dir);
 	i2c_put_dma_safe_msg_buf(dma_buf, msg, true);
-
-	regmap_field_force_write(i2c->dma_reset, 1);
-	mdelay(10);
 
 	return 0;
 }
@@ -312,7 +321,7 @@ static int msc313_i2c_xfer_pio(struct msc313e_i2c *i2c, struct i2c_msg *msg)
 	if (ret)
 		goto error;
 
-	for (i = 0; i < msg->len; i++){
+	for (i = 0; i < msg->len; i++) {
 		if (read){
 			int b = msc313_i2c_rxbyte(i2c, i + 1 == msg->len);
 			if(b < 0){
@@ -337,24 +346,31 @@ error:
 }
 
 static int msc313_i2c_xfer(struct i2c_adapter *i2c_adap, struct i2c_msg msgs[],
-			    int num)
+			   int num)
 {
+	struct msc313e_i2c *bus = i2c_get_adapdata(i2c_adap);
 	int i, txed = 0, ret = 0;
-	struct msc313e_i2c *i2c = i2c_get_adapdata(i2c_adap);
 	u8 *dma_buf;
 
-	regmap_field_force_write(i2c->rst, 0);
-	mdelay(10);
+	//printk("xfer\n");
 
-	for(i = 0; i < num; i++) {
+	ret = pm_runtime_get_sync(bus->dev);
+	if (ret < 0) {
+		dev_err(bus->dev, "runtime resume failed %d\n", ret);
+		pm_runtime_put_noidle(bus->dev);
+		return ret;
+	}
+
+	regmap_field_write(bus->endma, 0);
+
+	for (i = 0; i < num; i++) {
 		struct i2c_msg *msg = &msgs[i];
+		dma_buf = i2c_get_dma_safe_msg_buf(msg, 8);
 
-		//dma_buf = i2c_get_dma_safe_msg_buf(msg, 8);
-
-		//if(dma_buf)
-		//	msc313_i2c_xfer_dma(i2c, msg, dma_buf);
-		//else
-			ret = msc313_i2c_xfer_pio(i2c, msg);
+		if(dma_buf)
+			msc313_i2c_xfer_dma(bus, msg, dma_buf);
+		else
+			ret = msc313_i2c_xfer_pio(bus, msg);
 
 		if(ret)
 			goto abort;
@@ -365,8 +381,7 @@ static int msc313_i2c_xfer(struct i2c_adapter *i2c_adap, struct i2c_msg msgs[],
 	ret = txed;
 
 abort:
-	regmap_field_force_write(i2c->rst, 1);
-	mdelay(10);
+	pm_runtime_put(bus->dev);
 
 	return ret;
 }
@@ -421,6 +436,7 @@ static int msc313e_i2c_probe(struct platform_device *pdev)
 	struct msc313e_i2c *msc313ei2c;
 	struct i2c_adapter *adap;
 	void* __iomem base;
+	struct clk* clk;
 	int irq, ret;
 
 	msc313ei2c = devm_kzalloc(&pdev->dev, sizeof(*msc313ei2c), GFP_KERNEL);
@@ -490,8 +506,12 @@ static int msc313e_i2c_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	struct clk* clk = devm_clk_hw_get_clk(dev, &msc313ei2c->sclk, "what?!");
+	clk = devm_clk_hw_get_clk(dev, &msc313ei2c->sclk, "what?!");
 	clk_prepare_enable(clk);
+
+	platform_set_drvdata(pdev, msc313ei2c);
+
+	pm_runtime_enable(dev);
 
 	adap = &msc313ei2c->i2c;
 	i2c_set_adapdata(adap, msc313ei2c);
@@ -502,18 +522,16 @@ static int msc313e_i2c_probe(struct platform_device *pdev)
 	adap->algo = &msc313_i2c_algo;
 	adap->dev.parent = &pdev->dev;
 	adap->dev.of_node = pdev->dev.of_node;
-	ret = i2c_add_adapter(adap);
 
-	platform_set_drvdata(pdev, msc313ei2c);
-
-	return ret;
+	return i2c_add_adapter(adap);
 }
 
 static int msc313e_i2c_remove(struct platform_device *pdev)
 {
-	struct msc313e_i2c *msc313ei2c = platform_get_drvdata(pdev);
+	struct msc313e_i2c *bus = platform_get_drvdata(pdev);
 
-	i2c_del_adapter(&msc313ei2c->i2c);
+	i2c_del_adapter(&bus->i2c);
+	pm_runtime_force_suspend(bus->dev);
 
 	return 0;
 }
@@ -524,12 +542,39 @@ static const struct of_device_id msc313e_i2c_dt_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, msc313e_i2c_dt_ids);
 
+static int __maybe_unused msc313_i2c_runtime_suspend(struct device *dev)
+{
+	struct msc313e_i2c *i2c = dev_get_drvdata(dev);
+
+	regmap_field_force_write(i2c->dma_reset, 1);
+	regmap_field_force_write(i2c->rst, 1);
+	mdelay(10);
+
+	return 0;
+}
+
+static int __maybe_unused msc313_i2c_runtime_resume(struct device *dev)
+{
+	struct msc313e_i2c *i2c = dev_get_drvdata(dev);
+
+	regmap_field_force_write(i2c->rst, 0);
+	regmap_field_force_write(i2c->dma_reset, 0);
+	mdelay(10);
+
+	return 0;
+}
+
+static const struct dev_pm_ops msc313_i2c_pm = {
+	SET_RUNTIME_PM_OPS(msc313_i2c_runtime_suspend, msc313_i2c_runtime_resume, NULL)
+};
+
 static struct platform_driver msc313e_i2c_driver = {
 	.probe = msc313e_i2c_probe,
 	.remove = msc313e_i2c_remove,
 	.driver = {
-		   .name = DRIVER_NAME,
-		   .of_match_table = msc313e_i2c_dt_ids,
+		.name = DRIVER_NAME,
+		.of_match_table = msc313e_i2c_dt_ids,
+		.pm = &msc313_i2c_pm,
 	},
 };
 module_platform_driver(msc313e_i2c_driver);
