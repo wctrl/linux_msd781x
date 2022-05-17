@@ -11,7 +11,19 @@
 
 / {
 	model = "DongShanPi One + Carrier";
+
+	vcc_ext: reg_ext  {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc_ext";
+		regulator-type = "voltage";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpios = <&gpio SSD20XD_GPIO_GPIO85 0>;
+		enable-active-high;
+		regulator-always-on;
+	};
 };
+
 
 &emac {
 	pinctrl-names = "default";
