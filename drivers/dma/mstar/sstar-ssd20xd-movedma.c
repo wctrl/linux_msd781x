@@ -4,16 +4,14 @@
 #include <linux/debugfs.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
-#include <linux/gpio.h>
 #include <linux/interrupt.h>
-#include <linux/iopoll.h>
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <linux/reset.h>
-#include <linux/spi/spi.h>
 #include <linux/regmap.h>
 #include <linux/of_irq.h>
 #include <linux/dmaengine.h>
+#include <linux/of_dma.h>
 
 #define DRIVER_NAME "ssd20xd-movedma"
 #define CHANNELS 1
@@ -27,11 +25,11 @@ static const struct regmap_config ssd20xd_movedma_regmap_config = {
 struct ssd20xd_movedma {
 	struct dma_device dma_device;
 	struct clk *clk;
+	int irq;
 };
 
 struct ssd20xd_movedma_chan {
 	struct dma_chan chan;
-	int irq;
 	struct regmap *regmap;
 	struct list_head queue;
 	dma_cookie_t cookie;
@@ -49,11 +47,6 @@ struct ssd20xd_movedma_desc {
 
 #define to_desc(desc) container_of(desc, struct ssd20xd_movedma_desc, tx);
 
-static const struct of_device_id ssd20xd_movedma_of_match[] = {
-	{ .compatible = "sstar,ssd20xd-movedma", },
-	{},
-};
-
 static irqreturn_t ssd20xd_movedma_irq(int irq, void *data)
 {
 	struct ssd20xd_movedma *movedma = data;
@@ -61,7 +54,8 @@ static irqreturn_t ssd20xd_movedma_irq(int irq, void *data)
 }
 
 static enum dma_status ssd20xd_movedma_tx_status(struct dma_chan *chan,
-		dma_cookie_t cookie, struct dma_tx_state *txstate){
+		dma_cookie_t cookie, struct dma_tx_state *txstate)
+{
 	printk("movedma tx status\n");
 	return DMA_ERROR;
 }
@@ -70,7 +64,8 @@ void ssd20xd_movedma_issue_pending(struct dma_chan *chan){
 	printk("movedma issue pending\n");
 }
 
-static dma_cookie_t msc313_tx_submit(struct dma_async_tx_descriptor *tx){
+static dma_cookie_t msc313_tx_submit(struct dma_async_tx_descriptor *tx)
+{
 	struct ssd20xd_movedma_chan *chan = to_chan(tx->chan);
 	struct ssd20xd_movedma_desc *desc = to_desc(tx);
 	list_add_tail(&desc->queue_node, &chan->queue);
@@ -79,7 +74,8 @@ static dma_cookie_t msc313_tx_submit(struct dma_async_tx_descriptor *tx){
 
 static struct dma_async_tx_descriptor* ssd20xd_movedma_prep_dma_memcpy(
 		struct dma_chan *chan, dma_addr_t dst, dma_addr_t src,
-		size_t len, unsigned long flags){
+		size_t len, unsigned long flags)
+{
 
 	struct ssd20xd_movedma_desc *desc = kzalloc(sizeof(*desc), GFP_NOWAIT);
 	if (!desc)
@@ -114,6 +110,12 @@ static int ssd20xd_movedma_probe(struct platform_device *pdev)
 		return PTR_ERR(base);
 	}
 
+	movedma->irq = irq_of_parse_and_map(pdev->dev.of_node, i);
+	if (!movedma->irq)
+		return -EINVAL;
+	ret = devm_request_irq(&pdev->dev, movedma->irq, ssd20xd_movedma_irq, IRQF_SHARED,
+			dev_name(&pdev->dev), chan);
+
 	//movedma->clk = devm_clk_get(&pdev->dev, NULL);
 	//if (IS_ERR(movedma->clk)) {
 	//	return PTR_ERR(movedma->clk);
@@ -144,12 +146,6 @@ static int ssd20xd_movedma_probe(struct platform_device *pdev)
 			return PTR_ERR(chan->regmap);
 		}
 
-		chan->irq = irq_of_parse_and_map(pdev->dev.of_node, i);
-		if (!chan->irq)
-			return -EINVAL;
-		ret = devm_request_irq(&pdev->dev, chan->irq, ssd20xd_movedma_irq, IRQF_SHARED,
-				dev_name(&pdev->dev), chan);
-
 		chan->chan.device = &movedma->dma_device;
 
 		list_add_tail(&chan->chan.device_node, &movedma->dma_device.channels);
@@ -157,15 +153,20 @@ static int ssd20xd_movedma_probe(struct platform_device *pdev)
 
 	ret = dma_async_device_register(&movedma->dma_device);
 	if(ret)
-		goto out;
+		return ret;
 
-	ret = clk_prepare_enable(movedma->clk);
-	if (ret)
-		goto out;
+	//ret = clk_prepare_enable(movedma->clk);
+	//if (ret)
+	//	return ret;
 
-	out:
-	return ret;
+	return of_dma_controller_register(pdev->dev.of_node,
+			of_dma_xlate_by_chan_id, &movedma->dma_device);
 }
+
+static const struct of_device_id ssd20xd_movedma_of_match[] = {
+	{ .compatible = "sstar,ssd20xd-movedma", },
+	{},
+};
 
 static struct platform_driver ssd20xd_movedma_driver = {
 	.driver = {
