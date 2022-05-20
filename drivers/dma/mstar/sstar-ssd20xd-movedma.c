@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0
-//
+/*
+ * Copyright (C) 2022 Daniel Palmer<daniel@thingy.jp>
+ */
 
-#include <linux/debugfs.h>
 #include <linux/clk.h>
-#include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/of_platform.h>
-#include <linux/reset.h>
 #include <linux/regmap.h>
 #include <linux/of_irq.h>
 #include <linux/dmaengine.h>
@@ -50,45 +49,82 @@ struct ssd20xd_movedma_desc {
 static irqreturn_t ssd20xd_movedma_irq(int irq, void *data)
 {
 	struct ssd20xd_movedma *movedma = data;
+
+	printk("%s:%d\n", __func__, __LINE__);
+
 	return IRQ_HANDLED;
 }
 
 static enum dma_status ssd20xd_movedma_tx_status(struct dma_chan *chan,
 		dma_cookie_t cookie, struct dma_tx_state *txstate)
 {
-	printk("movedma tx status\n");
+	printk("%s:%d\n", __func__, __LINE__);
 	return DMA_ERROR;
 }
 
-void ssd20xd_movedma_issue_pending(struct dma_chan *chan){
-	printk("movedma issue pending\n");
+static void ssd20xd_movedma_issue_pending(struct dma_chan *chan)
+{
+	printk("%s:%d\n", __func__, __LINE__);
 }
 
-static dma_cookie_t msc313_tx_submit(struct dma_async_tx_descriptor *tx)
+static dma_cookie_t ssd20xd_movedma_tx_submit(struct dma_async_tx_descriptor *tx)
 {
 	struct ssd20xd_movedma_chan *chan = to_chan(tx->chan);
 	struct ssd20xd_movedma_desc *desc = to_desc(tx);
+
+	printk("%s:%d\n", __func__, __LINE__);
+
 	list_add_tail(&desc->queue_node, &chan->queue);
+
 	return chan->cookie++;
 }
 
-static struct dma_async_tx_descriptor* ssd20xd_movedma_prep_dma_memcpy(
-		struct dma_chan *chan, dma_addr_t dst, dma_addr_t src,
-		size_t len, unsigned long flags)
+static struct dma_async_tx_descriptor* ssd20xd_movedma_prep_slave_sg(
+		struct dma_chan *chan, struct scatterlist *sgl,
+		unsigned int sg_len, enum dma_transfer_direction direction,
+		unsigned long flags, void *context)
 {
+	struct ssd20xd_movedma_chan *ch;
+	struct ssd20xd_movedma_desc *desc;
+	u32 dmaaddr, dmalen;
+	int width;
 
-	struct ssd20xd_movedma_desc *desc = kzalloc(sizeof(*desc), GFP_NOWAIT);
+	if(sg_len != 1){
+		printk("only one sg for now\n");
+		return NULL;
+	}
+
+	ch = to_chan(chan);
+
+	dmaaddr = sg_dma_address(sgl);
+	dmalen = sg_dma_len(sgl);
+
+	desc = kzalloc(sizeof(*desc), GFP_NOWAIT);
 	if (!desc)
 		return NULL;
 
 	dma_async_tx_descriptor_init(&desc->tx, chan);
-	desc->len = len;
-	desc->src = src;
-	desc->dst = dst;
+
+	desc->len = dmalen;
+
+	switch(direction){
+		case DMA_DEV_TO_MEM:
+
+			break;
+		case DMA_MEM_TO_DEV:
+			break;
+		default:
+			goto free_desc;
+	}
+
 	desc->tx.tx_submit = msc313_tx_submit;
 
 	return &desc->tx;
-};
+
+free_desc:
+	kfree(desc);
+	return NULL;
+}
 
 static int ssd20xd_movedma_probe(struct platform_device *pdev)
 {
@@ -126,12 +162,12 @@ static int ssd20xd_movedma_probe(struct platform_device *pdev)
 	movedma->dma_device.device_issue_pending = ssd20xd_movedma_issue_pending;
 	movedma->dma_device.src_addr_widths = BIT(4);
 	movedma->dma_device.dst_addr_widths = BIT(4);
-	movedma->dma_device.directions = BIT(DMA_MEM_TO_MEM);
-	movedma->dma_device.device_prep_dma_memcpy = ssd20xd_movedma_prep_dma_memcpy;
+	movedma->dma_device.directions = BIT(DMA_MEM_TO_MEM) |
+					 BIT(DMA_DEV_TO_MEM) |
+					 BIT(DMA_MEM_TO_DEV);
+	movedma->dma_device.device_prep_slave_sg = ssd20xd_movedma_prep_slave_sg;
 
 	INIT_LIST_HEAD(&movedma->dma_device.channels);
-
-	dma_cap_set(DMA_MEMCPY, movedma->dma_device.cap_mask);
 
 	for(i = 0; i < CHANNELS; i++){
 		chan = devm_kzalloc(&pdev->dev, sizeof(*chan), GFP_KERNEL);
