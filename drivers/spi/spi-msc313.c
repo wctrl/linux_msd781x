@@ -14,6 +14,8 @@
 #include <linux/regmap.h>
 #include <linux/of_irq.h>
 #include <linux/clk-provider.h>
+#include <linux/dmaengine.h>
+#include <linux/dma-mapping.h>
 
 /*
  * 0x1f222100
@@ -104,6 +106,8 @@ struct msc313_spi {
 	bool tfrdone;
 
 	spinlock_t lock;
+
+	struct dma_chan *dmachan;
 };
 
 static const struct regmap_config msc313_spi_regmap_config = {
@@ -163,16 +167,68 @@ static void msc313_spi_set_cs(struct spi_device *spi, bool enable)
 	regmap_field_write(mspi->cs, enable ? 1 : 0);
 }
 
+static void msc313_spi_dma_callback(void *dma_async_param,
+				    const struct dmaengine_result *result)
+{
+
+}
+
 static int msc313_spi_transfer_one(struct spi_controller *ctlr, struct spi_device *spi,
 			    struct spi_transfer *transfer)
 {
 	struct msc313_spi *mspi = spi_controller_get_devdata(ctlr);
 	const u8* txbuf = transfer->tx_buf;
+	unsigned int len = transfer->len;
 	u8* rxbuf = transfer->rx_buf;
 	int blksz, txed = 0;
 	unsigned rdbuf;
 
 	clk_set_rate(mspi->divider->clk, transfer->speed_hz);
+
+	if (mspi->dmachan) {
+		struct dma_async_tx_descriptor *dmadesc;
+		struct dma_slave_config config;
+		dma_addr_t dmaaddr = 0;
+
+		dmaaddr = dma_map_single(mspi->dev, txbuf, len, DMA_FROM_DEVICE);
+		if (dma_mapping_error(mspi->dev, dmaaddr)) {
+			//
+		}
+
+		config.direction = DMA_DEV_TO_MEM;
+		config.src_addr = 0x0;
+		config.src_addr_width = DMA_SLAVE_BUSWIDTH_8_BYTES;
+		dmaengine_slave_config(mspi->dmachan, &config);
+		dmadesc = dmaengine_prep_slave_single(mspi->dmachan, dmaaddr, len, DMA_DEV_TO_MEM, 0);
+		if (dmadesc) {
+			dmadesc->callback_result = msc313_spi_dma_callback;
+			dmadesc->callback_param = mspi;
+			dmaengine_submit(dmadesc);
+			dma_async_issue_pending(mspi->dmachan);
+#if 0
+			/*
+			 * If the settings are wrong DMA doesn't complete so we
+			 * use a timeout so we can inform the user that we are borked.
+			 * If this happens the CPU interface is also broken and
+			 * the CPU will lock up.
+			 */
+			if (!wait_event_timeout(isp->dma_wait, isp->dma_done, HZ * 10)) {
+				dev_err(&isp->master->dev, "timeout waiting for dma, lock up in coming\n");
+				len = -EIO;
+				goto dma_exit;
+			}
+			rmb();
+			if(isp->dma_success)
+				goto dma_exit;
+			else
+				dev_warn(&isp->master->dev, "dma failed, falling back to cpu read\n");
+#endif
+		}
+
+		dma_unmap_single(mspi->dev, dmaaddr, len, DMA_FROM_DEVICE);
+	}
+
+
 
 	while (transfer->len - txed > 0) {
 		blksz = min(transfer->len - txed, (unsigned) FIFOSZ);
@@ -285,6 +341,13 @@ static int msc313_spi_probe(struct platform_device *pdev)
 	if (IS_ERR(base))
 		return PTR_ERR(base);
 
+	spi->dmachan = dma_request_chan(&pdev->dev, "movedma");
+	if (IS_ERR(spi->dmachan)) {
+		dev_warn(&pdev->dev, "failed to request dma channel: %ld, will use cpu!\n",
+			 PTR_ERR(spi->dmachan));
+		spi->dmachan = NULL;
+	}
+
 	spi->regmap = devm_regmap_init_mmio(spi->dev, base,
                         &msc313_spi_regmap_config);
 	if (IS_ERR(spi->regmap))
@@ -334,6 +397,7 @@ static int msc313_spi_probe(struct platform_device *pdev)
 
 static const struct of_device_id msc313_spi_of_match[] = {
 	{ .compatible = "mstar,msc313-spi", },
+	{ .compatible = "sstar,ssd20xd-spi", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, msc313_spi_of_match);
