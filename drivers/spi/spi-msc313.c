@@ -69,6 +69,11 @@
 #define REG_DONE	0x6c
 #define REG_DONECLR	0x70
 #define REG_CS		0x7c
+/* DMA registers might only exist on SSD20XD and later */
+#define REG_DMALEN_L	0xc0
+#define REG_DMALEN_H	0xc4
+#define REG_DMAEN	0xc8
+#define REG_DMARW	0xcc
 #define REG_FDREADBUF	0xE0
 
 #define DIV_SHIFT	8
@@ -84,6 +89,8 @@ static struct reg_field trigger_field = REG_FIELD(REG_TRIGGER, 0, 0);
 static struct reg_field done_done_field = REG_FIELD(REG_DONE, 0, 0);
 static struct reg_field doneclr_field = REG_FIELD(REG_DONECLR, 0, 0);
 static struct reg_field cs_field = REG_FIELD(REG_CS, 0, 0);
+static struct reg_field dmaen_field = REG_FIELD(REG_DMAEN, 0, 0);
+static struct reg_field dmarw_field = REG_FIELD(REG_DMARW, 0, 0);
 
 struct msc313_spi {
 	struct device *dev;
@@ -101,6 +108,10 @@ struct msc313_spi {
 	struct regmap_field *trigger;
 	struct regmap_field *cs;
 
+	/* dma */
+	struct regmap_field *dmaen;
+	struct regmap_field *dmarw;
+
 	wait_queue_head_t wait;
 
 	bool tfrdone;
@@ -108,6 +119,9 @@ struct msc313_spi {
 	spinlock_t lock;
 
 	struct dma_chan *dmachan;
+	wait_queue_head_t dma_wait;
+	bool dma_done;
+	bool dma_success;
 };
 
 static const struct regmap_config msc313_spi_regmap_config = {
@@ -173,6 +187,72 @@ static void msc313_spi_dma_callback(void *dma_async_param,
 
 }
 
+static int msc313_spi_transfer_one_dma(struct spi_controller *ctlr, struct spi_device *spi,
+		    struct spi_transfer *transfer)
+{
+	struct msc313_spi *mspi = spi_controller_get_devdata(ctlr);
+	struct dma_async_tx_descriptor *dmadesc;
+	const u8 *txbuf = transfer->tx_buf;
+	unsigned int len = transfer->len;
+	struct dma_slave_config config;
+	u8 *rxbuf = transfer->rx_buf;
+	dma_addr_t dmaaddr = 0;
+	enum dma_data_direction dmadir = rxbuf ? DMA_FROM_DEVICE : DMA_TO_DEVICE;
+	enum dma_transfer_direction dmatrans = rxbuf ? DMA_DEV_TO_MEM : DMA_MEM_TO_DEV;
+	int ret = 0;
+
+	printk("%s:%d\n", __func__, __LINE__);
+
+	regmap_field_write(mspi->dmaen, 1);
+
+	dmaaddr = dma_map_single(mspi->dev, txbuf, len, dmadir);
+	ret = dma_mapping_error(mspi->dev, dmaaddr);
+	if (ret)
+		return ret;
+
+	printk("%s:%d\n", __func__, __LINE__);
+
+	dmadesc = dmaengine_prep_slave_single(mspi->dmachan, dmaaddr, len, dmatrans, 0);
+	if (!dmadesc) {
+		ret = -ENOMEM;
+		goto out;
+	}
+	dmadesc->callback_result = msc313_spi_dma_callback;
+	dmadesc->callback_param = mspi;
+
+	printk("%s:%d\n", __func__, __LINE__);
+
+	config.direction = dmatrans;
+	if (rxbuf)
+		config.dst_addr = dmaaddr;
+	else
+		config.src_addr = dmaaddr;
+	dmaengine_slave_config(mspi->dmachan, &config);
+
+	dmaengine_submit(dmadesc);
+	dma_async_issue_pending(mspi->dmachan);
+
+	mspi->dma_done = false;
+	if (!wait_event_timeout(mspi->dma_wait, mspi->dma_done, HZ * 10)) {
+		dev_err(mspi->dev, "timeout waiting for dma\n");
+		ret = -EIO;
+		goto out;
+	}
+#if 0
+	rmb();
+	if(isp->dma_success)
+		goto dma_exit;
+	else
+		dev_warn(&isp->master->dev, "dma failed, falling back to cpu read\n");
+#endif
+
+
+out:
+	dma_unmap_single(mspi->dev, dmaaddr, len, dmadir);
+
+	return ret;
+}
+
 static int msc313_spi_transfer_one(struct spi_controller *ctlr, struct spi_device *spi,
 			    struct spi_transfer *transfer)
 {
@@ -185,53 +265,14 @@ static int msc313_spi_transfer_one(struct spi_controller *ctlr, struct spi_devic
 
 	clk_set_rate(mspi->divider->clk, transfer->speed_hz);
 
-	if (mspi->dmachan) {
-		struct dma_async_tx_descriptor *dmadesc;
-		struct dma_slave_config config;
-		dma_addr_t dmaaddr = 0;
+	/* DMA only works for half duplex */
+	if (mspi->dmachan && ((txbuf && !rxbuf) || (rxbuf && !txbuf)))
+		return msc313_spi_transfer_one_dma(ctlr, spi, transfer);
 
-		dmaaddr = dma_map_single(mspi->dev, txbuf, len, DMA_FROM_DEVICE);
-		if (dma_mapping_error(mspi->dev, dmaaddr)) {
-			//
-		}
+	regmap_field_write(mspi->dmaen, 0);
 
-		config.direction = DMA_DEV_TO_MEM;
-		config.src_addr = 0x0;
-		config.src_addr_width = DMA_SLAVE_BUSWIDTH_8_BYTES;
-		dmaengine_slave_config(mspi->dmachan, &config);
-		dmadesc = dmaengine_prep_slave_single(mspi->dmachan, dmaaddr, len, DMA_DEV_TO_MEM, 0);
-		if (dmadesc) {
-			dmadesc->callback_result = msc313_spi_dma_callback;
-			dmadesc->callback_param = mspi;
-			dmaengine_submit(dmadesc);
-			dma_async_issue_pending(mspi->dmachan);
-#if 0
-			/*
-			 * If the settings are wrong DMA doesn't complete so we
-			 * use a timeout so we can inform the user that we are borked.
-			 * If this happens the CPU interface is also broken and
-			 * the CPU will lock up.
-			 */
-			if (!wait_event_timeout(isp->dma_wait, isp->dma_done, HZ * 10)) {
-				dev_err(&isp->master->dev, "timeout waiting for dma, lock up in coming\n");
-				len = -EIO;
-				goto dma_exit;
-			}
-			rmb();
-			if(isp->dma_success)
-				goto dma_exit;
-			else
-				dev_warn(&isp->master->dev, "dma failed, falling back to cpu read\n");
-#endif
-		}
-
-		dma_unmap_single(mspi->dev, dmaaddr, len, DMA_FROM_DEVICE);
-	}
-
-
-
-	while (transfer->len - txed > 0) {
-		blksz = min(transfer->len - txed, (unsigned) FIFOSZ);
+	while (len - txed > 0) {
+		blksz = min(len - txed, (unsigned) FIFOSZ);
 		if (txbuf) {
 			msc313_spi_loadtxbuff(mspi, txbuf, blksz);
 			txbuf += blksz;
@@ -341,12 +382,12 @@ static int msc313_spi_probe(struct platform_device *pdev)
 	if (IS_ERR(base))
 		return PTR_ERR(base);
 
-	spi->dmachan = dma_request_chan(&pdev->dev, "movedma");
-	if (IS_ERR(spi->dmachan)) {
-		dev_warn(&pdev->dev, "failed to request dma channel: %ld, will use cpu!\n",
-			 PTR_ERR(spi->dmachan));
-		spi->dmachan = NULL;
-	}
+	//spi->dmachan = dma_request_chan(&pdev->dev, "movedma");
+	//if (IS_ERR(spi->dmachan)) {
+	//	dev_warn(&pdev->dev, "failed to request dma channel: %ld, will use cpu!\n",
+	//		 PTR_ERR(spi->dmachan));
+	//	spi->dmachan = NULL;
+	//                                                                                                                               }
 
 	spi->regmap = devm_regmap_init_mmio(spi->dev, base,
                         &msc313_spi_regmap_config);
@@ -361,6 +402,11 @@ static int msc313_spi_probe(struct platform_device *pdev)
 	spi->done = devm_regmap_field_alloc(spi->dev, spi->regmap, done_done_field);
 	spi->doneclr = devm_regmap_field_alloc(spi->dev, spi->regmap, doneclr_field);
 	spi->cs = devm_regmap_field_alloc(spi->dev, spi->regmap, cs_field);
+
+
+	init_waitqueue_head(&spi->dma_wait);
+	spi->dmaen = devm_regmap_field_alloc(spi->dev, spi->regmap, dmaen_field);
+	spi->dmarw = devm_regmap_field_alloc(spi->dev, spi->regmap, dmarw_field);
 
 	sclk_name = devm_kasprintf(dev, GFP_KERNEL, "%s_sclk", dev_name(dev));
 	spi->divider = devm_clk_hw_register_divider_table(dev, sclk_name, parents[0], 0,
