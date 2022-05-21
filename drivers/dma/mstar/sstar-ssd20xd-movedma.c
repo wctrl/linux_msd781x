@@ -15,6 +15,19 @@
 #define DRIVER_NAME "ssd20xd-movedma"
 #define CHANNELS 1
 
+#define REG_EN			0x0
+#define REG_SRC_START_ADDR_L	0xc
+#define REG_SRC_START_ADDR_H	0x10
+#define REG_BYTE_CNT_L		0x1c
+#define REG_BYTE_CNT_H		0x20
+#define REG_DMAMODE		0x144
+#define REG_DEVSEL		0x148
+
+static struct reg_field en_field = REG_FIELD(REG_EN, 0, 0);
+static struct reg_field dmamode_field = REG_FIELD(REG_DMAMODE, 0, 0);
+#define DMAMODE_DEVICE	1
+static struct reg_field devsel_field = REG_FIELD(REG_DEVSEL, 0, 0);
+
 static const struct regmap_config ssd20xd_movedma_regmap_config = {
 	.reg_bits = 16,
 	.val_bits = 16,
@@ -25,11 +38,15 @@ struct ssd20xd_movedma {
 	struct dma_device dma_device;
 	struct clk *clk;
 	int irq;
+
+	struct regmap *regmap;
+	struct regmap_field *en;
+	struct regmap_field *dmamode;
+	struct regmap_field *devsel;
 };
 
 struct ssd20xd_movedma_chan {
 	struct dma_chan chan;
-	struct regmap *regmap;
 	struct list_head queue;
 	dma_cookie_t cookie;
 };
@@ -62,9 +79,21 @@ static enum dma_status ssd20xd_movedma_tx_status(struct dma_chan *chan,
 	return DMA_ERROR;
 }
 
-static void ssd20xd_movedma_issue_pending(struct dma_chan *chan)
+static void ssd20xd_movedma_do_single(struct ssd20xd_movedma_chan *chan, struct ssd20xd_movedma_desc *desc)
 {
 	printk("%s:%d\n", __func__, __LINE__);
+}
+
+static void ssd20xd_movedma_issue_pending(struct dma_chan *chan)
+{
+	struct ssd20xd_movedma_desc *desc;
+	struct ssd20xd_movedma_chan *ch = to_chan(chan);
+
+	printk("%s:%d\n", __func__, __LINE__);
+
+	desc = list_first_entry_or_null(&ch->queue, struct ssd20xd_movedma_desc, queue_node);
+	if(desc)
+		ssd20xd_movedma_do_single(ch, desc);
 }
 
 static dma_cookie_t ssd20xd_movedma_tx_submit(struct dma_async_tx_descriptor *tx)
@@ -117,7 +146,7 @@ static struct dma_async_tx_descriptor* ssd20xd_movedma_prep_slave_sg(
 			goto free_desc;
 	}
 
-	desc->tx.tx_submit = msc313_tx_submit;
+	desc->tx.tx_submit = ssd20xd_movedma_tx_submit;
 
 	return &desc->tx;
 
@@ -128,8 +157,9 @@ free_desc:
 
 static int ssd20xd_movedma_probe(struct platform_device *pdev)
 {
-	struct ssd20xd_movedma *movedma;
 	struct ssd20xd_movedma_chan *chan;
+	struct ssd20xd_movedma *movedma;
+	struct device *dev = &pdev->dev;
 	struct resource *res;
 	void __iomem *base;
 	int i, ret;
@@ -176,24 +206,30 @@ static int ssd20xd_movedma_probe(struct platform_device *pdev)
 
 		INIT_LIST_HEAD(&chan->queue);
 
-		chan->regmap = devm_regmap_init_mmio(&pdev->dev, base + (0x40 * i),
-				&ssd20xd_movedma_regmap_config);
-		if(IS_ERR(chan->regmap)){
-			return PTR_ERR(chan->regmap);
-		}
-
 		chan->chan.device = &movedma->dma_device;
 
 		list_add_tail(&chan->chan.device_node, &movedma->dma_device.channels);
 	}
 
-	ret = dma_async_device_register(&movedma->dma_device);
-	if(ret)
-		return ret;
+	movedma->regmap = devm_regmap_init_mmio(&pdev->dev, base, &ssd20xd_movedma_regmap_config);
+	if (IS_ERR(movedma->regmap))
+		return PTR_ERR(movedma->regmap);
+
+	movedma->en = devm_regmap_field_alloc(dev, movedma->regmap, en_field);
+	movedma->dmamode = devm_regmap_field_alloc(dev, movedma->regmap, dmamode_field);
+	movedma->devsel = devm_regmap_field_alloc(dev, movedma->regmap, devsel_field);
+
+	regmap_field_write(movedma->en, 1);
+	regmap_field_write(movedma->dmamode, DMAMODE_DEVICE);
+	regmap_field_write(movedma->devsel, 0);
 
 	//ret = clk_prepare_enable(movedma->clk);
 	//if (ret)
 	//	return ret;
+
+	ret = dma_async_device_register(&movedma->dma_device);
+	if(ret)
+		return ret;
 
 	return of_dma_controller_register(pdev->dev.of_node,
 			of_dma_xlate_by_chan_id, &movedma->dma_device);
