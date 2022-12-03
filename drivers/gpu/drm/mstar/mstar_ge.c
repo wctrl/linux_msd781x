@@ -396,19 +396,19 @@ static int mstar_ge_do_bitblt(struct mstar_ge *ge, unsigned int width,
 
 	/* set the region to copy to */
 	switch(bitblt->rotation) {
-		case ROTATION_0:
+		case MSTAR_GE_ROTATION_0:
 			mstar_ge_set_priv0(ge, bitblt->dst_x0, bitblt->dst_y0);
 			mstar_ge_set_priv1(ge, bitblt->dst_x1, bitblt->dst_y1);
 			break;
-		case ROTATION_90:
+		case MSTAR_GE_ROTATION_90:
 			mstar_ge_set_priv0(ge, bitblt->dst_x1, bitblt->dst_y0);
 			mstar_ge_set_priv1(ge, (bitblt->dst_x1 * 2) - 1, bitblt->dst_y1);
 			break;
-		case ROTATION_180:
+		case MSTAR_GE_ROTATION_180:
 			mstar_ge_set_priv0(ge, bitblt->dst_x1, bitblt->dst_y1);
 			mstar_ge_set_priv1(ge, (bitblt->dst_x1 * 2) - 1, (bitblt->dst_y1 * 2) - 1);
 			break;
-		case ROTATION_270:
+		case MSTAR_GE_ROTATION_270:
 			mstar_ge_set_priv0(ge, bitblt->dst_x1, bitblt->dst_y1);
 			mstar_ge_set_priv1(ge, bitblt->dst_x0, bitblt->dst_y0);
 			break;
@@ -802,7 +802,7 @@ static int mstar_ge_test(struct mstar_ge *ge)
 	j->opdata.bitblt.dst_y0 = 1;
 	j->opdata.bitblt.dst_x1 = 3;
 	j->opdata.bitblt.dst_y1 = 3;
-	j->opdata.bitblt.rotation = ROTATION_0;
+	j->opdata.bitblt.rotation = MSTAR_GE_ROTATION_0;
 
 	mstar_ge_filltestbuf(&src);
 	mstar_ge_cleartestbuf(&dst);
@@ -819,7 +819,7 @@ static int mstar_ge_test(struct mstar_ge *ge)
 	/* bitblt, 90 rotation */
 	dev_info(ge->dev, "Test, bitblt, rotation 90\n");
 	mstar_ge_reset_job(j);
-	j->opdata.bitblt.rotation = ROTATION_90;
+	j->opdata.bitblt.rotation = MSTAR_GE_ROTATION_90;
 
 	mstar_ge_filltestbuf(&src);
 	mstar_ge_cleartestbuf(&dst);
@@ -834,7 +834,7 @@ static int mstar_ge_test(struct mstar_ge *ge)
 	/* bitblt, 180 rotation */
 	dev_info(ge->dev, "Test, bitblt, rotation 180\n");
 	mstar_ge_reset_job(j);
-	j->opdata.bitblt.rotation = ROTATION_180;
+	j->opdata.bitblt.rotation = MSTAR_GE_ROTATION_180;
 
 	mstar_ge_filltestbuf(&src);
 	mstar_ge_cleartestbuf(&dst);
@@ -849,7 +849,7 @@ static int mstar_ge_test(struct mstar_ge *ge)
 	/* bitblt, 270 rotation */
 	dev_info(ge->dev, "Test, bitblt, rotation 270\n");
 	mstar_ge_reset_job(j);
-	j->opdata.bitblt.rotation = ROTATION_270;
+	j->opdata.bitblt.rotation = MSTAR_GE_ROTATION_270;
 
 	mstar_ge_filltestbuf(&src);
 	mstar_ge_cleartestbuf(&dst);
@@ -1025,11 +1025,12 @@ static long mstar_ge_ioctl_queue(struct mstar_ge *ge, unsigned long arg)
 
 		dev_info(ge->dev, "Queuing job for op %d\n", i);
 		mstar_ge_queue_job(ge, job);
+		kmem_cache_free(ge->jobs, job);
 	}
 
 	/* unmap everything, this needs to move once things are actually async */
 	for (i = 0; i < req.num_bufs; i++) {
-		dma_buf_unmap_attachment(dma_attachs[i], dma_mappings[i], DMA_FROM_DEVICE);
+		dma_buf_unmap_attachment(dma_attachs[i], dma_mappings[i], dma_dirs[i]);
 		dma_buf_detach(dma_bufs[i], dma_attachs[i]);
 		dma_buf_put(dma_bufs[i]);
 	}

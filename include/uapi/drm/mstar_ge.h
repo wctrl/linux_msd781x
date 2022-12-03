@@ -20,10 +20,12 @@
  */
 #define MSTAR_GE_IOCTL_QUERY	2
 
-#define ROTATION_0	0
-#define ROTATION_90	1
-#define ROTATION_180	2
-#define ROTATION_270	3
+enum mstar_ge_rotation {
+	MSTAR_GE_ROTATION_0	= 0,
+	MSTAR_GE_ROTATION_90	= 1,
+	MSTAR_GE_ROTATION_180	= 2,
+	MSTAR_GE_ROTATION_270	= 3,
+};
 
 struct mstar_ge_info {
 	__u32 caps;
@@ -31,6 +33,7 @@ struct mstar_ge_info {
 
 /* The desired operation */
 enum mstar_ge_op {
+	MSTAR_GE_OP_INVALID,
 	MSTAR_GE_OP_LINE,
 	MSTAR_GE_OP_RECTFILL,
 	MSTAR_GE_OP_BITBLT,
@@ -62,7 +65,21 @@ struct mstar_ge_bitblt {
 	/* bottom right corner of the src */
 	unsigned int dst_x1, dst_y1;
 	/* rotation to apply */
-	unsigned int rotation;
+	enum mstar_ge_rotation rotation;
+};
+
+/* Extra parameters for a STRBLT */
+struct mstar_ge_strblt {
+	/* top left corner of the src */
+	unsigned int src_x0, src_y0;
+	/* bottom right corner of the src */
+	unsigned int src_x1, src_y1;
+	/* top left corner of the dst */
+	unsigned int dst_x0, dst_y0;
+	/* bottom right corner of the src */
+	unsigned int dst_x1, dst_y1;
+	/* rotation to apply */
+	enum mstar_ge_rotation rotation;
 };
 
 struct mstar_ge_buf_cfg {
@@ -88,6 +105,7 @@ struct mstar_ge_opdata {
 		struct mstar_ge_line_params line;
 		struct mstar_ge_rectfill_params rectfill;
 		struct mstar_ge_bitblt bitblt;
+		struct mstar_ge_strblt strblt;
 	};
 };
 
