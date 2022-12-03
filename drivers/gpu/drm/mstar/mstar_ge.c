@@ -422,6 +422,40 @@ static int mstar_ge_do_bitblt(struct mstar_ge *ge, unsigned int width,
 	return 0;
 }
 
+static int mstar_ge_do_strblt(struct mstar_ge *ge, unsigned int width,
+		unsigned int height, struct mstar_ge_strblt *strblt)
+{
+	dev_info(ge->dev, "doing strblt %d:%d,%d:%d -> %d:%d,%d:%d free %d\n",
+			strblt->src_x0, strblt->src_y0,
+			strblt->src_x1, strblt->src_y1,
+			strblt->dst_x0, strblt->dst_y0,
+			strblt->dst_x1, strblt->dst_y1,
+			mstar_ge_cmq_free(ge));
+
+	regmap_field_write(ge->dfb, 1);
+	regmap_field_write(ge->bld_alphachan, 1);
+
+	regmap_field_write(ge->bitblt_src_width, width);
+	regmap_field_write(ge->bitblt_src_height, height);
+
+	regmap_field_write(ge->rot, strblt->rotation);
+
+	/* set the region to copy to */
+	switch(strblt->rotation) {
+		case MSTAR_GE_ROTATION_0:
+			mstar_ge_set_priv0(ge, strblt->dst_x0, strblt->dst_y0);
+			mstar_ge_set_priv1(ge, strblt->dst_x1, strblt->dst_y1);
+			break;
+	}
+
+	/* set the top left corner of the source */
+	mstar_ge_set_priv2(ge, strblt->src_x0, strblt->src_y0);
+
+	regmap_field_force_write(ge->prim_type, PRIM_TYPE_BITBLT);
+
+	return 0;
+}
+
 #define P256_ENTRIES 0xff
 
 static void mstar_ge_write_p256(struct mstar_ge *ge)
@@ -522,6 +556,11 @@ static int mstar_ge_queue_job(struct mstar_ge *ge, struct mstar_ge_job *job)
 				     min(job->opdata.rectfill.y1, job->dst_cfg.height - 1));
 		break;
 	case MSTAR_GE_OP_STRBLT:
+		mstar_ge_do_strblt(ge,
+				   job->src_cfg.width,
+				   job->src_cfg.height,
+				   &job->opdata.strblt);
+		break;
 	case MSTAR_GE_OP_BITBLT:
 		mstar_ge_do_bitblt(ge,
 				   job->src_cfg.width,
