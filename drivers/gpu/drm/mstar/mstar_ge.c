@@ -521,6 +521,7 @@ static int mstar_ge_queue_job(struct mstar_ge *ge, struct mstar_ge_job *job)
 				     min(job->opdata.rectfill.x1, job->dst_cfg.width - 1),
 				     min(job->opdata.rectfill.y1, job->dst_cfg.height - 1));
 		break;
+	case MSTAR_GE_OP_STRBLT:
 	case MSTAR_GE_OP_BITBLT:
 		mstar_ge_do_bitblt(ge,
 				   job->src_cfg.width,
@@ -996,7 +997,14 @@ static long mstar_ge_ioctl_queue(struct mstar_ge *ge, unsigned long arg)
 					op->bitblt.dst_x0, op->bitblt.dst_y0,
 					op->bitblt.dst_x1, op->bitblt.dst_y1,
 					op->bitblt.rotation);
-			op->bitblt.rotation = 0;
+			break;
+		case MSTAR_GE_OP_STRBLT:
+			dev_info(ge->dev, "op %d: STRBLT %d,%d,%d,%d -> %d:%d,%d,%d (rot %d)\n", i,
+					  op->strblt.src_x0, op->strblt.src_y0,
+					  op->strblt.src_x1, op->strblt.src_y1,
+					  op->strblt.dst_x0, op->strblt.dst_y0,
+					  op->strblt.dst_x1, op->strblt.dst_y1,
+					  op->strblt.rotation);
 			break;
 		default:
 			ret = -EFAULT;
