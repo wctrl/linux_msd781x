@@ -12,7 +12,7 @@
 	};
 
 	chosen {
-		bootargs = "console=ttyS0,115200 root=/dev/sda2 rootwait clk_ignore_unused";
+		bootargs = "console=tty0 root=/dev/sda2 rootwait clk_ignore_unused";
 	};
 
 	memory@0 {
@@ -47,7 +47,7 @@
 		width = <1920>;
 		height = <1080>;
 		stride = <(1920*2)>;
-		format = "r5g6b5";
+		format = "r5g6b5"; /* Note: this fork is hacked to replace R5G6B6 with RGBX4444. Before booting Linux in u-boot run command `osd_create 1 1` to change device framebuffer format from YUV to RGBX4444 */
 	};
 };
 
