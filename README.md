@@ -1,3 +1,9 @@
+Experimental Linux fork for running it on MSD7816/MSD7818
+
+[.config](https://gist.github.com/maniekx86/4ac546aad6ea88463644182d95f5b10f) that I used to compile and run this
+
+Use mipsel toolchain to compile this. Also I recommend to check arch/mips/boot/dts/mstar/msd7816-test.dts too
+```
 Linux kernel
 ============
 
@@ -16,3 +22,4 @@ several of them using the Restructured Text markup notation.
 Please read the Documentation/process/changes.rst file, as it contains the
 requirements for building and running the kernel, and information about
 the problems which may result by upgrading your kernel.
+```
