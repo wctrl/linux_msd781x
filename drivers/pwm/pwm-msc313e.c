@@ -183,7 +183,7 @@ static int msc313e_get_state(struct pwm_chip *chip, struct pwm_device *device,
 static const struct pwm_ops msc313e_pwm_ops = {
 	.apply = msc313e_apply,
 	.get_state = msc313e_get_state,
-	.owner = THIS_MODULE
+//	.owner = THIS_MODULE
 };
 
 static int msc313e_pwm_probe(struct platform_device *pdev)
