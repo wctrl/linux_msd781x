@@ -12,7 +12,7 @@
 	};
 
 	chosen {
-		bootargs = "console=ttyS0,115200 root=/dev/sda2 rootwait clk_ignore_unused";
+		bootargs = "console=ttyS0,115200 root=/dev/sda2 rootwait clk_ignore_unused rw fbcon=font:TER16x32";
 	};
 
 	memory@0 {
@@ -25,9 +25,13 @@
 		#size-cells = <1>;
 		ranges;
 
-		/* 4 megs for the framebuffer (will fit 1920x1080 @ 16bpp) */
-		fb-memory@3800000 {
-			reg = <0x3800000 0x400000>;
+		fb-memory@2100000 {
+			reg = <0x2100000 0x400000>;
+		};
+
+		/* ve framebuffer */
+		ve-memory@3200000 {
+			reg = <0x3200000 0x1a0000>;
 		};
 
 		/* reserve this for our experiments */
@@ -36,9 +40,9 @@
 		};
 	};
 
-	framebuffer@3800000 {
+	framebuffer@2100000 {
 		compatible = "simple-framebuffer";
-		reg = <0x3800000 0x400000>;
+		reg = <0x2100000 0x400000>;
 		width = <1920>;
 		height = <1080>;
 		stride = <(1920*2)>;

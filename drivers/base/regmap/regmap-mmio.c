@@ -14,10 +14,7 @@
 
 #include "internal.h"
 
-#include <asm/dcc.h>
-
 struct regmap_mmio_context {
-	u32 magicnum;
 	void __iomem *regs;
 	unsigned int val_bytes;
 	bool big_endian;
@@ -205,6 +202,15 @@ static int regmap_mmio_noinc_write(void *context, unsigned int reg,
 				writel(swab32(valp[i]), ctx->regs + reg);
 			goto out_clk;
 		}
+#ifdef CONFIG_64BIT
+		case 8:
+		{
+			const u64 *valp = (const u64 *)val;
+			for (i = 0; i < val_count; i++)
+				writeq(swab64(valp[i]), ctx->regs + reg);
+			goto out_clk;
+		}
+#endif
 		default:
 			ret = -EINVAL;
 			goto out_clk;
@@ -221,6 +227,11 @@ static int regmap_mmio_noinc_write(void *context, unsigned int reg,
 	case 4:
 		writesl(ctx->regs + reg, (const u32 *)val, val_count);
 		break;
+#ifdef CONFIG_64BIT
+	case 8:
+		writesq(ctx->regs + reg, (const u64 *)val, val_count);
+		break;
+#endif
 	default:
 		ret = -EINVAL;
 		break;
@@ -251,11 +262,9 @@ static unsigned int regmap_mmio_ioread8(struct regmap_mmio_context *ctx,
 	return ioread8(ctx->regs + reg);
 }
 
-
 static unsigned int regmap_mmio_read16le(struct regmap_mmio_context *ctx,
 				         unsigned int reg)
 {
-	__dcc_writel(ctx->magicnum);
 	return readw(ctx->regs + reg);
 }
 
@@ -354,6 +363,11 @@ static int regmap_mmio_noinc_read(void *context, unsigned int reg,
 	case 4:
 		readsl(ctx->regs + reg, (u32 *)val, val_count);
 		break;
+#ifdef CONFIG_64BIT
+	case 8:
+		readsq(ctx->regs + reg, (u64 *)val, val_count);
+		break;
+#endif
 	default:
 		ret = -EINVAL;
 		goto out_clk;
@@ -373,6 +387,11 @@ static int regmap_mmio_noinc_read(void *context, unsigned int reg,
 		case 4:
 			swab32_array(val, val_count);
 			break;
+#ifdef CONFIG_64BIT
+		case 8:
+			swab64_array(val, val_count);
+			break;
+#endif
 		default:
 			ret = -EINVAL;
 			break;
@@ -429,7 +448,7 @@ static struct regmap_mmio_context *regmap_mmio_gen_context(struct device *dev,
 	if (min_stride < 0)
 		return ERR_PTR(min_stride);
 
-	if (config->reg_stride && config->reg_stride < min_stride)
+	if (config->reg_stride < min_stride)
 		return ERR_PTR(-EINVAL);
 
 	if (config->use_relaxed_mmio && config->io_port)
@@ -439,7 +458,6 @@ static struct regmap_mmio_context *regmap_mmio_gen_context(struct device *dev,
 	if (!ctx)
 		return ERR_PTR(-ENOMEM);
 
-	ctx->magicnum = dev ? (u32) dev->driver : 0xf00ff00f;
 	ctx->regs = regs;
 	ctx->val_bytes = config->val_bits / 8;
 	ctx->clk = ERR_PTR(-ENODEV);

@@ -355,7 +355,118 @@ static void drm_fb_xrgb8888_to_rgb565_swab_line(void *dbuf, const void *sbuf,
 		dbuf16[x] = cpu_to_le16(swab16(val16));
 	}
 }
+/*
+static void drm_fb_xrgb8888_to_rgb4444_line(void *dbuf, const void *sbuf, unsigned int pixels)
+{
+	u16 *dbuf16 = dbuf;
+	const __le32 *sbuf32 = sbuf;
+	unsigned int x;
+	u16 val16;
+	u32 pix;
+	for (x = 0; x < pixels; x++) {
+		pix = le32_to_cpu(sbuf32[x]);
+		val16 = ((pix & 0x00FF0000) >> 8) |
+			((pix & 0x0000FF00) >> 4) |
+			((pix & 0x000000FF));
+		dbuf16[x] = val16;
+	}
+}
+void drm_fb_xrgb8888_to_rgb4444(struct iosys_map *dst, const unsigned int *dst_pitch,
+			       const struct iosys_map *src, const struct drm_framebuffer *fb,
+			       const struct drm_rect *clip)
+{
+	static const u8 dst_pixsize[DRM_FORMAT_MAX_PLANES] = {
+		1,
+	};
+	drm_fb_xfrm(dst, dst_pitch, dst_pixsize, src, fb, clip, false,
+		    drm_fb_xrgb8888_to_rgb4444_line);
+}
+EXPORT_SYMBOL(drm_fb_xrgb8888_to_rgb4444);
+*/
+static void drm_fb_rgb565_to_rgbx4444_line(void *dbuf, const void *sbuf, unsigned int pixels)
+{
+	__le16 *dbuf16 = dbuf;
+	const __le16 *sbuf16 = sbuf;
+	unsigned int x;
 
+	for (x = 0; x < pixels; x++) {
+		u16 val16 = le16_to_cpu(sbuf16[x]);
+		u16 val16_4444;
+		u8 red = (val16 >> 11) & 0x1f;
+		u8 green = (val16 >> 5) & 0x3f;
+		u8 blue = val16 & 0x1f;
+		red=( red * 527 + 23 ) >> 6;
+		green=( green * 259 + 33 ) >> 6;
+		blue=( blue * 527 + 23 ) >> 6;
+		val16_4444=((red >> 4) << 8) | ((green >> 4) << 4) | ((blue >> 4) << 0);
+
+
+		dbuf16[x] = cpu_to_le16(val16_4444);
+	}
+}
+
+void drm_fb_rgb565_to_rgbx4444(struct iosys_map *dst, const unsigned int *dst_pitch,
+				      const struct iosys_map *src,
+				      const struct drm_framebuffer *fb,
+				      const struct drm_rect *clip)
+{
+	static const u8 dst_pixsize[DRM_FORMAT_MAX_PLANES] = {
+		2,
+	};
+
+	drm_fb_xfrm(dst, dst_pitch, dst_pixsize, src, fb, clip, false,
+		    drm_fb_rgb565_to_rgbx4444_line);
+}
+EXPORT_SYMBOL(drm_fb_rgb565_to_rgbx4444);
+
+static void drm_fb_rgb565_to_xrgb4444_line(void *dbuf, const void *sbuf, unsigned int pixels)
+{
+	u16 *dbuf16 = dbuf;
+	const u16 *sbuf16 = sbuf;
+	unsigned int x;
+	u16 val16;
+	u16 pix;
+
+	for (x = 0; x < pixels; x++) {
+		pix = sbuf16[x];
+		val16 = ((pix & 0xF000) << 4) | ((pix & 0x0F00) << 4) | ((pix & 0x00F0) << 4) | 0xF;
+		dbuf16[x] = val16;
+	}
+}
+
+static void drm_fb_rgb565_to_xrgb4444_swab_line(void *dbuf, const void *sbuf, unsigned int pixels)
+{
+	u16 *dbuf16 = dbuf;
+	const u16 *sbuf16 = sbuf;
+	unsigned int x;
+	u16 val16;
+	u16 pix;
+
+	for (x = 0; x < pixels; x++) {
+		pix = swab16(sbuf16[x]);
+		val16 = ((pix & 0xF000) << 4) | ((pix & 0x0F00) << 4) | ((pix & 0x00F0) << 4) | 0xF;
+		dbuf16[x] = val16;
+	}
+}
+
+void drm_fb_rgb565_to_xrgb4444(struct iosys_map *dst, const unsigned int *dst_pitch,
+			       const struct iosys_map *src, const struct drm_framebuffer *fb,
+			       const struct drm_rect *clip, bool swab)
+{
+	static const u8 dst_pixsize[DRM_FORMAT_MAX_PLANES] = {
+		2,
+	};
+
+	void (*xfrm_line)(void *dbuf, const void *sbuf, unsigned int npixels);
+
+	if (swab)
+		xfrm_line = drm_fb_rgb565_to_xrgb4444_swab_line;
+	else
+		xfrm_line = drm_fb_rgb565_to_xrgb4444_line;
+
+	drm_fb_xfrm(dst, dst_pitch, dst_pixsize, src, fb, clip, false, xfrm_line);
+}
+EXPORT_SYMBOL(drm_fb_rgb565_to_xrgb4444);
 /**
  * drm_fb_xrgb8888_to_rgb565 - Convert XRGB8888 to RGB565 clip buffer
  * @dst: Array of RGB565 destination buffers
@@ -899,6 +1010,10 @@ int drm_fb_blit(struct iosys_map *dst, const unsigned int *dst_pitch, uint32_t d
 		const struct drm_rect *clip)
 {
 	uint32_t fb_format = fb->format->format;
+	
+	drm_fb_rgb565_to_rgbx4444(dst, dst_pitch, src, fb, clip);
+		//drm_fb_memcpy(dst, dst_pitch, src, fb, clip);
+	return 0;
 
 	if (fb_format == dst_format) {
 		drm_fb_memcpy(dst, dst_pitch, src, fb, clip);
@@ -952,6 +1067,8 @@ int drm_fb_blit(struct iosys_map *dst, const unsigned int *dst_pitch, uint32_t d
 	return -EINVAL;
 }
 EXPORT_SYMBOL(drm_fb_blit);
+
+
 
 static void drm_fb_gray8_to_mono_line(void *dbuf, const void *sbuf, unsigned int pixels)
 {
