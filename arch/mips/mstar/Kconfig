@@ -28,6 +28,11 @@ choice
 		bool "MSD7816 test"
 		depends on MACH_KROUNS
 		select BUILTIN_DTB
+	
+	config DTB_MST_MSD7816_128M_TEST
+		bool "MSD7816 128MB test"
+		depends on MACH_KROUNS
+		select BUILTIN_DTB
 
 	config DTB_MST_MSD309PX_TEST
 		bool "MSD309PX test"

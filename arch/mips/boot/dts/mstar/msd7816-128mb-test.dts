@@ -1,0 +1,110 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+
+#include "kronus-msd7816.dtsi"
+
+/ {
+	compatible = "mstar,msd7816", "mstar,kronus";
+	model = "MStar MSD7816 128MB test";
+
+	aliases {
+		serial0 = &piu_uart0;
+	};
+
+	chosen {
+		bootargs = "console=ttyS0,115200 root=/dev/sda2 rootwait clk_ignore_unused rw fbcon=font:TER16x32";
+	};
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x0 0x7600000>;
+	};
+
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		fb-memory@6E00000 {
+			reg = <0x6E00000 0x400000>;
+		};
+
+		/* ve framebuffer */
+		ve-memory@6C00000 {
+			reg = <0x6C00000 0x1a0000>;
+		};
+	};
+
+	framebuffer@6E00000 {
+		compatible = "simple-framebuffer";
+		reg = <0x6E00000 0x400000>;
+		width = <1920>;
+		height = <1080>;
+		stride = <(1920*2)>;
+		format = "r5g6b5";
+	};
+};
+
+
+&isp {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	flash@0 {
+		compatible = "macronix,mx25l8005", "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <54000000>; /* something like that */
+		m25p,fast-read;
+
+		partitions {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "fixed-partitions";
+
+			sboot@0 {
+				label = "sboot";
+				reg = <0x0 0x10000>;
+			};
+
+			u-boot@10000 {
+				label = "u-boot";
+				reg = <0x10000 0xd0000>;
+			};
+
+			u-boot-env@e0000 {
+				label = "u-boot env";
+				reg = <0xe0000 0x20000>;
+			};
+		};
+	};
+};
+
+&miic0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	temp-sensor@4c {
+		compatible = "gmt,g781";
+		reg = <0x4c>;
+		#thermal-sensor-cells = <1>;
+	};
+
+	rtc@68 {
+		compatible = "dallas,ds1340";
+		reg = <0x68>;
+	};
+};
+
+&usb_phy2 {
+	status = "okay";
+};
+
+&uhc2 {
+	status = "okay";
+};
+
+&piu_uart0 {
+	status = "okay";
+};
