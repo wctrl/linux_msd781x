@@ -33,6 +33,10 @@
 		ve-memory@6C00000 {
 			reg = <0x6C00000 0x1a0000>;
 		};
+
+        ff@75F2000 {
+            reg = <0x75F2000 0xe000>
+        }
 	};
 
 	framebuffer@6E00000 {
