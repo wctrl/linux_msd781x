@@ -33,11 +33,6 @@
 		ve-memory@3200000 {
 			reg = <0x3200000 0x1a0000>;
 		};
-
-		/* reserve this for our experiments */
-		tsukasa@3c00000 {
-			reg = <0x3c00000 0x400000>;
-		};
 	};
 
 	framebuffer@2100000 {
