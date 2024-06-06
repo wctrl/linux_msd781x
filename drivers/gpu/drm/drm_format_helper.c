@@ -503,6 +503,7 @@ static void drm_fb_rgb565_to_rgbx4444_line(void *dbuf, const void *sbuf, unsigne
 void drm_fb_rgb565_to_rgbx4444(struct iosys_map *dst, const unsigned int *dst_pitch,
 				      const struct iosys_map *src,
 				      const struct drm_framebuffer *fb,
+				      struct drm_format_conv_state *state,
 				      const struct drm_rect *clip)
 {
 	static const u8 dst_pixsize[DRM_FORMAT_MAX_PLANES] = {
@@ -510,7 +511,7 @@ void drm_fb_rgb565_to_rgbx4444(struct iosys_map *dst, const unsigned int *dst_pi
 	};
 
 	drm_fb_xfrm(dst, dst_pitch, dst_pixsize, src, fb, clip, false,
-		    drm_fb_rgb565_to_rgbx4444_line);
+		    state, drm_fb_rgb565_to_rgbx4444_line);
 }
 EXPORT_SYMBOL(drm_fb_rgb565_to_rgbx4444);
 
@@ -559,7 +560,7 @@ void drm_fb_rgb565_to_xrgb4444(struct iosys_map *dst, const unsigned int *dst_pi
 	else
 		xfrm_line = drm_fb_rgb565_to_xrgb4444_line;
 
-	drm_fb_xfrm(dst, dst_pitch, dst_pixsize, src, fb, clip, false, xfrm_line);
+	drm_fb_xfrm(dst, dst_pitch, dst_pixsize, src, fb, clip, false, state, xfrm_line);
 }
 EXPORT_SYMBOL(drm_fb_rgb565_to_xrgb4444);
 /**
