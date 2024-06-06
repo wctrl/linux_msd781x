@@ -547,7 +547,8 @@ static void drm_fb_rgb565_to_xrgb4444_swab_line(void *dbuf, const void *sbuf, un
 
 void drm_fb_rgb565_to_xrgb4444(struct iosys_map *dst, const unsigned int *dst_pitch,
 			       const struct iosys_map *src, const struct drm_framebuffer *fb,
-			       const struct drm_rect *clip, bool swab)
+			       const struct drm_rect *clip, struct drm_format_conv_state *state,
+			       bool swab)
 {
 	static const u8 dst_pixsize[DRM_FORMAT_MAX_PLANES] = {
 		2,
@@ -1122,7 +1123,7 @@ int drm_fb_blit(struct iosys_map *dst, const unsigned int *dst_pitch, uint32_t d
 {
 	uint32_t fb_format = fb->format->format;
 	
-	drm_fb_rgb565_to_rgbx4444(dst, dst_pitch, src, fb, clip);
+	drm_fb_rgb565_to_rgbx4444(dst, dst_pitch, src, fb, state, clip);
 		//drm_fb_memcpy(dst, dst_pitch, src, fb, clip);
 	return 0;
 
