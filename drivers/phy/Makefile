@@ -26,6 +26,7 @@ obj-y					+= allwinner/	\
 					   motorola/	\
 					   mscc/	\
 					   mstar/	\
+					   nuvoton/	\
 					   qualcomm/	\
 					   ralink/	\
 					   realtek/	\
