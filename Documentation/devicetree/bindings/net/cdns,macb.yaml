@@ -61,6 +61,11 @@ properties:
           - mstar,msc313              # MStar infinity
           - mstar,msc313e             # MStar infinity3 and other SoCs that have XIU register access.
 
+      - items:
+          - enum:
+              - microchip,sam9x7-gem     # Microchip SAM9X7 gigabit ethernet interface
+          - const: microchip,sama7g5-gem # Microchip SAMA7G5 gigabit ethernet interface
+
   reg:
     minItems: 1
     items:

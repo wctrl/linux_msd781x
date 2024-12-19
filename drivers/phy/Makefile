@@ -27,6 +27,7 @@ obj-y					+= allwinner/	\
 					   mstar/	\
 					   qualcomm/	\
 					   ralink/	\
+					   realtek/	\
 					   renesas/	\
 					   rockchip/	\
 					   samsung/	\
