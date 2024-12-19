@@ -1391,7 +1391,7 @@ fifo_setup(struct musb *musb, struct musb_hw_ep  *hw_ep,
 
 	/* expect hw_ep has already been zero-initialized */
 
-	size = ffs(max(maxpacket, (u16) 8)) - 1;
+	size = ffs(max_t(u16, maxpacket, 8)) - 1;
 	maxpacket = 1 << size;
 
 	c_size = size - 3;
@@ -2965,7 +2965,7 @@ static struct platform_driver musb_driver = {
 		.dev_groups	= musb_groups,
 	},
 	.probe		= musb_probe,
-	.remove_new	= musb_remove,
+	.remove		= musb_remove,
 };
 
 module_platform_driver(musb_driver);
