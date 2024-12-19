@@ -381,7 +381,7 @@ fail_create_hcd:
 	return retval;
 }
 
-static int ehci_fotg210_drv_remove(struct platform_device *pdev)
+static void ehci_fotg210_drv_remove(struct platform_device *pdev)
 {
 	struct usb_hcd *hcd = platform_get_drvdata(pdev);
 
@@ -389,8 +389,6 @@ static int ehci_fotg210_drv_remove(struct platform_device *pdev)
 	usb_put_hcd(hcd);
 
 	fotg210_stop_ehci(pdev);
-
-	return 0;
 }
 
 static int __maybe_unused ehci_fotg210_drv_suspend(struct device *dev)
