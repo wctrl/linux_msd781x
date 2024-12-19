@@ -6,6 +6,9 @@
 	#size-cells = <1>;
 
 	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
 		cpu {
 			compatible = "mips,mips34KEc";
 		};
